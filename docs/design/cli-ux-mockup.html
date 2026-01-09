@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthSim Agent - Rich CLI UX Examples</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:wght@600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Terminal GitHub Dark Theme Colors */
+            --term-bg: #0d1117;
+            --term-surface: #161b22;
+            --term-border: #30363d;
+            --term-text: #c9d1d9;
+            --term-muted: #8b949e;
+            --term-blue: #58a6ff;
+            --term-light-blue: #79c0ff;
+            --term-green: #7ee787;
+            --term-teal: #3fb950;
+            --term-yellow: #e3b341;
+            --term-orange: #d29922;
+            --term-red: #f85149;
+            --term-pink: #f778ba;
+            --term-purple: #d2a8ff;
+            --term-cyan: #39c5cf;
+            
+            /* Page Theme */
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-600: #475569;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+            --teal-600: #0d9488;
+            --teal-700: #0f766e;
+            
+            --font-display: 'Fraunces', serif;
+            --font-body: 'DM Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: var(--font-body);
+            background: var(--slate-100);
+            color: var(--slate-800);
+            line-height: 1.6;
+        }
+        
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, var(--teal-700) 0%, var(--slate-900) 100%);
+            color: white;
+            padding: 50px 40px;
+        }
+        
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .hero-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: 2.25rem;
+            font-weight: 900;
+            margin-bottom: 12px;
+        }
+        
+        .hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 650px;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 50px 40px;
+        }
+        
+        section { margin-bottom: 60px; }
+        
+        h2 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 8px;
+        }
+        
+        h2 .num {
+            color: var(--teal-600);
+            margin-right: 8px;
+        }
+        
+        .section-lead {
+            color: var(--slate-600);
+            margin-bottom: 24px;
+            max-width: 700px;
+        }
+        
+        /* Terminal Window */
+        .terminal {
+            background: var(--term-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin: 24px 0;
+        }
+        
+        .terminal-header {
+            background: var(--term-surface);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--term-border);
+        }
+        
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .terminal-dot.red { background: #ff5f56; }
+        .terminal-dot.yellow { background: #ffbd2e; }
+        .terminal-dot.green { background: #27ca40; }
+        
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--term-muted);
+        }
+        
+        .terminal-body {
+            padding: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            line-height: 1.65;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        
+        /* Welcome Panel */
+        .welcome-panel {
+            border: 1px solid var(--term-border);
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin-bottom: 24px;
+            background: var(--term-surface);
+        }
+        
+        .welcome-title {
+            color: var(--term-blue);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .welcome-subtitle {
+            color: var(--term-muted);
+            font-size: 0.85rem;
+        }
+        
+        /* Chat Messages */
+        .chat-turn { margin-bottom: 24px; }
+        
+        .user-prompt {
+            color: var(--term-text);
+            margin-bottom: 12px;
+        }
+        
+        .user-prompt .label {
+            color: var(--term-green);
+            font-weight: 600;
+        }
+        
+        .agent-response {
+            color: var(--term-text);
+            padding-left: 0;
+        }
+        
+        .agent-response h3 {
+            color: var(--term-green);
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+        }
+        
+        .tool-indicator {
+            color: var(--term-muted);
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+        
+        .tool-indicator .arrow {
+            color: var(--term-cyan);
+        }
+        
+        /* Stats and Data */
+        .stat-line {
+            color: var(--term-text);
+            margin: 4px 0;
+        }
+        
+        .stat-value {
+            color: var(--term-light-blue);
+            font-weight: 500;
+        }
+        
+        .stat-box {
+            border: 1px solid var(--term-border);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            background: var(--term-surface);
+        }
+        
+        .stat-box-title {
+            color: var(--term-blue);
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        
+        /* Discovery Box */
+        .discovery-box {
+            border: 1px solid var(--term-yellow);
+            border-left: 3px solid var(--term-yellow);
+            border-radius: 4px;
+            padding: 10px 14px;
+            margin: 16px 0;
+            background: rgba(227, 179, 65, 0.08);
+        }
+        
+        .discovery-title {
+            color: var(--term-yellow);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .discovery-box div {
+            color: var(--term-text);
+        }
+        
+        /* Suggestion Box */
+        .suggestion-box {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--term-border);
+        }
+        
+        .suggestion-box .label {
+            color: var(--term-muted);
+            font-size: 0.8rem;
+        }
+        
+        .suggestion-item {
+            color: var(--term-muted);
+            margin: 4px 0 4px 8px;
+        }
+        
+        .suggestion-item .cmd {
+            color: var(--term-blue);
+        }
+        
+        /* Table Reference */
+        .table-ref {
+            color: var(--term-cyan);
+            background: rgba(57, 197, 207, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        /* Cost Badge */
+        .cost-badge {
+            color: var(--term-muted);
+            font-size: 0.75rem;
+            margin-top: 12px;
+            text-align: right;
+        }
+        
+        /* Help Section */
+        .help-section {
+            margin-bottom: 16px;
+        }
+        
+        .help-section h4 {
+            color: var(--term-blue);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        
+        .help-section ul {
+            list-style: none;
+            padding-left: 8px;
+        }
+        
+        .help-section li {
+            color: var(--term-text);
+            margin: 4px 0;
+        }
+        
+        .help-section .cmd {
+            color: var(--term-cyan);
+        }
+        
+        /* Export Success */
+        .export-success {
+            border: 1px solid var(--term-green);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            background: rgba(62, 185, 80, 0.08);
+        }
+        
+        .export-path {
+            color: var(--term-green);
+            font-weight: 500;
+        }
+        
+        /* Feature Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 24px;
+        }
+        
+        .feature-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .feature-card h4 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: var(--slate-800);
+        }
+        
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--slate-600);
+        }
+        
+        /* Footer */
+        footer {
+            background: var(--slate-900);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        
+        @media (max-width: 900px) {
+            .feature-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">UX SPECIFICATION</div>
+            <h1>HealthSim Agent - Rich CLI UX</h1>
+            <p>
+                Terminal interface mockups showing conversational healthcare data generation 
+                with rich formatting, contextual suggestions, and progressive discovery.
+            </p>
+        </div>
+    </div>
+    
+    <div class="container">
+        
+        <!-- Example 1: Generation and Discovery -->
+        <section>
+            <h2><span class="num">01</span>Data Generation and Discovery</h2>
+            <p class="section-lead">
+                Natural language generation with automatic cohort discovery and actionable insights.
+            </p>
+            
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                    <div class="terminal-title">healthsim - zsh - 100x40</div>
+                </div>
+                <div class="terminal-body">
+                    
+                    <!-- Welcome -->
+                    <div class="welcome-panel">
+                        <div class="welcome-title">HealthSim Agent v1.0</div>
+                        <div class="welcome-subtitle">Healthcare simulation through conversation</div>
+                    </div>
+                    
+                    <!-- Turn 1: Generate members -->
+                    <div class="chat-turn">
+                        <div class="user-prompt">
+                            <span class="label">You:</span> Generate 1000 members in California with a mix of chronic conditions
+                        </div>
+                        
+                        <div class="tool-indicator"><span class="arrow">-&gt;</span> generate_members</div>
+                        
+                        <div class="agent-response">
+                            <h3>Generated 1,000 members</h3>
+                            
+                            <div class="stat-box">
+                                <div class="stat-box-title">Population Summary</div>
+                                <div class="stat-line">&#8226; Members: <span class="stat-value">1,000</span></div>
+                                <div class="stat-line">&#8226; Age range: <span class="stat-value">22-84</span> (mean 54)</div>
+                                <div class="stat-line">&#8226; State: <span class="stat-value">California</span></div>
+                            </div>
+                            
+                            <div class="stat-box">
+                                <div class="stat-box-title">Chronic Condition Prevalence</div>
+                                <div class="stat-line">&#8226; Type 2 Diabetes: <span class="stat-value">312 (31%)</span></div>
+                                <div class="stat-line">&#8226; Hypertension: <span class="stat-value">456 (46%)</span></div>
+                                <div class="stat-line">&#8226; Heart Failure: <span class="stat-value">89 (9%)</span></div>
+                                <div class="stat-line">&#8226; COPD: <span class="stat-value">134 (13%)</span></div>
+                                <div class="stat-line">&#8226; CKD: <span class="stat-value">178 (18%)</span></div>
+                            </div>
+                            
+                            <div class="suggestion-box">
+                                <span class="label">Suggested:</span>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Add 12 months of claims history"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Profile this population"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Show me high-risk members"</span></div>
+                            </div>
+                            
+                            <div class="cost-badge">Cost: $0.0234</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Turn 2: Add claims -->
+                    <div class="chat-turn">
+                        <div class="user-prompt">
+                            <span class="label">You:</span> Add 12 months of claims history
+                        </div>
+                        
+                        <div class="tool-indicator"><span class="arrow">-&gt;</span> generate_claims</div>
+                        
+                        <div class="agent-response">
+                            <h3>Generated 127,483 claims</h3>
+                            
+                            <div class="stat-box">
+                                <div class="stat-box-title">Claims Summary</div>
+                                <div class="stat-line">&#8226; Total claims: <span class="stat-value">127,483</span></div>
+                                <div class="stat-line">&#8226; Date range: <span class="stat-value">Jan 2024 - Dec 2024</span></div>
+                                <div class="stat-line">&#8226; Total cost: <span class="stat-value">$45.2M</span></div>
+                                <div class="stat-line">&#8226; PMPM: <span class="stat-value">$3,767</span></div>
+                            </div>
+                            
+                            <div class="stat-box">
+                                <div class="stat-box-title">Utilization</div>
+                                <div class="stat-line">&#8226; Inpatient admits: <span class="stat-value">234</span> (234 per 1K)</div>
+                                <div class="stat-line">&#8226; ED visits: <span class="stat-value">567</span> (567 per 1K)</div>
+                                <div class="stat-line">&#8226; Office visits: <span class="stat-value">8,234</span> (8.2 per member)</div>
+                            </div>
+                            
+                            <div class="suggestion-box">
+                                <span class="label">Suggested:</span>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"What are the cost drivers?"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Find care gaps"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Export to X12 837P"</span></div>
+                            </div>
+                            
+                            <div class="cost-badge">Cost: $0.0456</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Turn 3: Find care gaps -->
+                    <div class="chat-turn">
+                        <div class="user-prompt">
+                            <span class="label">You:</span> Find diabetic members with A1c gaps
+                        </div>
+                        
+                        <div class="tool-indicator"><span class="arrow">-&gt;</span> query_cohort</div>
+                        
+                        <div class="agent-response">
+                            <h3>Found 47 members with A1c monitoring gaps</h3>
+                            
+                            <div class="stat-box">
+                                <div class="stat-box-title">Cohort: Diabetics Missing A1c (&gt;6 months)</div>
+                                <div class="stat-line">&#8226; Members: <span class="stat-value">47</span> of 312 diabetics (15%)</div>
+                                <div class="stat-line">&#8226; Mean A1c (last known): <span class="stat-value">9.2%</span></div>
+                                <div class="stat-line">&#8226; Mean days since last A1c: <span class="stat-value">487</span></div>
+                                <div class="stat-line">&#8226; Comorbid HTN: <span class="stat-value">89%</span></div>
+                                <div class="stat-line">&#8226; Comorbid CKD: <span class="stat-value">62%</span></div>
+                                <div class="stat-line">&#8226; Annual cost PMPY: <span class="stat-value">$67,234</span></div>
+                            </div>
+                            
+                            <div class="discovery-box">
+                                <div class="discovery-title">&#127919; High-Impact Outreach Opportunity</div>
+                                <div>These 47 members represent <span class="stat-value">$3.16M</span> in annual spend.</div>
+                                <div style="margin-top: 4px;">A1c monitoring intervention could reduce complications and ED visits.</div>
+                            </div>
+                            
+                            <div style="margin-top: 12px;" class="stat-line">
+                                Cohort stored in <span class="table-ref">cohort_dm_a1c_gap_a3f2c1</span>
+                            </div>
+                            
+                            <div class="suggestion-box">
+                                <span class="label">Suggested:</span>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Export cohort to CSV"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Show member detail for top 5"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Simulate A1c monitoring intervention"</span></div>
+                            </div>
+                            
+                            <div class="cost-badge">Cost: $0.0198</div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </section>
+        
+        <!-- Example 2: Help and Commands -->
+        <section>
+            <h2><span class="num">02</span>Help System and Commands</h2>
+            <p class="section-lead">
+                Built-in help with contextual command suggestions and clear documentation.
+            </p>
+            
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                    <div class="terminal-title">healthsim - zsh - 100x30</div>
+                </div>
+                <div class="terminal-body">
+                    
+                    <div class="chat-turn">
+                        <div class="user-prompt">
+                            <span class="label">You:</span> /help
+                        </div>
+                        
+                        <div class="agent-response">
+                            <div class="help-section">
+                                <h4>&#128230; Generation</h4>
+                                <ul>
+                                    <li><span class="cmd">"Generate 1000 members in California"</span></li>
+                                    <li><span class="cmd">"Add 12 months of claims history"</span></li>
+                                    <li><span class="cmd">"Generate pharmacy claims for diabetics"</span></li>
+                                    <li><span class="cmd">"Create a patient with CHF and diabetes"</span></li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h4>&#128202; Analytics</h4>
+                                <ul>
+                                    <li><span class="cmd">"Profile this population"</span> - demographics, conditions, utilization</li>
+                                    <li><span class="cmd">"Stratify risk, 4 tiers"</span> - assign risk levels</li>
+                                    <li><span class="cmd">"Define cohort for [criteria]"</span> - create named subgroups</li>
+                                    <li><span class="cmd">"Compare [cohort A] vs [cohort B]"</span> - cohort comparison</li>
+                                    <li><span class="cmd">"What are the cost drivers?"</span> - cost analysis</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h4>&#128451; Database</h4>
+                                <ul>
+                                    <li><span class="cmd">"Show tables"</span> - list generated data tables</li>
+                                    <li><span class="cmd">"Describe [table]"</span> - show table schema</li>
+                                    <li><span class="cmd">"/sql SELECT ..."</span> - execute custom query</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h4>&#128229; Export</h4>
+                                <ul>
+                                    <li><span class="cmd">"Export to FHIR Bundle"</span> - clinical data</li>
+                                    <li><span class="cmd">"Export to X12 837P"</span> - professional claims</li>
+                                    <li><span class="cmd">"Export to CSV"</span> - tabular data</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="help-section">
+                                <h4>&#9881; System</h4>
+                                <ul>
+                                    <li><span class="cmd">/help</span> - show this message</li>
+                                    <li><span class="cmd">/clear</span> - clear screen</li>
+                                    <li><span class="cmd">/cost</span> - show session cost</li>
+                                    <li><span class="cmd">/exit</span> or <span class="cmd">quit</span> - exit application</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </section>
+        
+        <!-- Example 3: Export -->
+        <section>
+            <h2><span class="num">03</span>Data Export</h2>
+            <p class="section-lead">
+                Export generated data to industry-standard formats with clear file path feedback.
+            </p>
+            
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                    <div class="terminal-title">healthsim - zsh - 100x25</div>
+                </div>
+                <div class="terminal-body">
+                    
+                    <div class="chat-turn">
+                        <div class="user-prompt">
+                            <span class="label">You:</span> Export claims to X12 837P
+                        </div>
+                        
+                        <div class="tool-indicator"><span class="arrow">-&gt;</span> export_data</div>
+                        
+                        <div class="agent-response">
+                            <h3>&#10004; Exported 127,483 claims to X12 837P</h3>
+                            
+                            <div class="export-success">
+                                <div style="margin-bottom: 8px;">&#128196; <span class="export-path">./exports/claims_a3f2c1_837p.txt</span></div>
+                                <div class="stat-line">&#8226; Transactions: <span class="stat-value">127,483</span></div>
+                                <div class="stat-line">&#8226; File size: <span class="stat-value">48.2 MB</span></div>
+                                <div class="stat-line">&#8226; Validation: <span class="stat-value" style="color: var(--term-green);">&#10004; Passed</span></div>
+                            </div>
+                            
+                            <div class="suggestion-box">
+                                <span class="label">Also available:</span>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Export to FHIR Bundle"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Export to CSV"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Export cohort to Excel"</span></div>
+                            </div>
+                            
+                            <div class="cost-badge">Cost: $0.0156</div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </section>
+        
+        <!-- Example 4: Error Handling -->
+        <section>
+            <h2><span class="num">04</span>Error Handling</h2>
+            <p class="section-lead">
+                Clear error messages with actionable guidance for resolution.
+            </p>
+            
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                    <div class="terminal-title">healthsim - zsh - 100x20</div>
+                </div>
+                <div class="terminal-body">
+                    
+                    <div class="chat-turn">
+                        <div class="user-prompt">
+                            <span class="label">You:</span> Export cohort to FHIR
+                        </div>
+                        
+                        <div class="agent-response">
+                            <div style="border: 1px solid var(--term-red); border-radius: 6px; padding: 12px 16px; background: rgba(248, 81, 73, 0.08);">
+                                <div style="color: var(--term-red); font-weight: 600; margin-bottom: 8px;">&#10008; No active cohort</div>
+                                <div class="stat-line">You need to generate or load a cohort before exporting.</div>
+                                <div style="margin-top: 12px; color: var(--term-muted);">Try:</div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Generate 100 patients"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Load cohort diabetes_study"</span></div>
+                                <div class="suggestion-item">&#8594; <span class="cmd">"Show saved cohorts"</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </section>
+        
+        <!-- UX Principles -->
+        <section>
+            <h2><span class="num">05</span>UX Design Principles</h2>
+            <p class="section-lead">
+                Core principles embedded in every interaction.
+            </p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>&#129517; Guided Discovery</h4>
+                    <p>Every response suggests logical next steps. Users are never stuck wondering "what now?"</p>
+                </div>
+                <div class="feature-card">
+                    <h4>&#128161; Proactive Insights</h4>
+                    <p>Surface interesting patterns automatically - care gaps, cost outliers, high-risk cohorts.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>&#128202; Progressive Depth</h4>
+                    <p>Headlines first, offer to drill down. Show the forest, then the trees on request.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>&#128279; Connect the Dots</h4>
+                    <p>Reference previous findings. "This cohort accounts for 21% of costs you saw earlier."</p>
+                </div>
+                <div class="feature-card">
+                    <h4>&#128295; Tool Transparency</h4>
+                    <p>Show tool execution (-&gt; generate_members) so users understand what's happening.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>&#128176; Cost Awareness</h4>
+                    <p>Display API cost per interaction. Users can manage their budget consciously.</p>
+                </div>
+            </div>
+        </section>
+        
+    </div>
+    
+    <footer>
+        <p>HealthSim Agent - Rich CLI UX Examples</p>
+        <p style="margin-top: 8px; font-size: 0.875rem;">January 2026</p>
+    </footer>
+</body>
+</html>
