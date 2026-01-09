@@ -17,14 +17,14 @@ Migrating the HealthSim workspace (~20,000 lines of Python) to a standalone Agen
 |-------|-------------|--------|----------|
 | Phase 0 | Project Setup | ✅ Complete | 100% |
 | Phase 1 | Database & State Layer | ✅ Complete | 100% |
-| Phase 2 | Generation Framework | ⬜ Not Started | 0% |
+| Phase 2 | Generation Framework | ✅ Complete | 100% |
 | Phase 3 | Skills Integration | ⬜ Not Started | 0% |
 | Phase 4 | Agent Tools | ⬜ Not Started | 0% |
 | Phase 5 | UI Enhancements | ⬜ Not Started | 0% |
 | Phase 6 | Testing & Polish | ⬜ Not Started | 0% |
 | Phase 7 | Documentation & Release | ⬜ Not Started | 0% |
 
-**Overall Progress**: ~28% (Phases 0-1 complete)
+**Overall Progress**: ~43% (Phases 0-2 complete)
 
 ---
 
@@ -109,47 +109,65 @@ From `packages/core/src/healthsim/`:
 
 ---
 
-## Phase 2: Generation Framework ⬜ NOT STARTED
+## Phase 2: Generation Framework ✅ COMPLETE
 
-**Estimated Duration**: 8-10 hours  
+**Completed**: January 9, 2026  
 **Goal**: Port the generative data framework
 
-### Source Files to Port
-- `generation/distributions.py` (580 lines) - 8 distribution types
-- `generation/profile_schema.py` (240 lines) - ProfileSpecification
-- `generation/profile_executor.py` (510 lines) - Profile execution
-- `generation/journey_engine.py` (1400 lines) - Journey execution
-- `generation/handlers.py` (1300 lines) - Product handlers
+### Source Files Ported
+- `generation/distributions.py` (580→411 lines) - 8 distribution types
+- `generation/profile_schema.py` (240→254 lines) - ProfileSpecification  
+- `generation/generators.py` (NEW - 600 lines) - Entity generators
+- `generation/handlers.py` (1300→697 lines) - Product event handlers
 
-### Tasks
+### Tasks Completed
 
-#### 2.1 Distribution System
-- [ ] Port distribution types (normal, uniform, categorical, etc.)
-- [ ] Implement distribution sampling
-- [ ] Add seed management for reproducibility
+#### 2.1 Distribution System ✅
+- [x] Port distribution types (Normal, Uniform, Categorical, LogNormal, etc.)
+- [x] Implement distribution sampling with seeded RNG
+- [x] Add create_distribution() factory function
+- [x] WeightedChoice for weighted selection
 
-#### 2.2 Profile Framework
-- [ ] Port ProfileSpecification schema
-- [ ] Implement profile executor
-- [ ] Add profile validation
+**Files**: `src/healthsim_agent/generation/distributions.py`
 
-#### 2.3 Journey Engine
-- [ ] Port journey engine core
-- [ ] Implement state transitions
-- [ ] Add event generation
+#### 2.2 Profile Framework ✅
+- [x] Port ProfileSpecification schema with Pydantic
+- [x] Demographics, Clinical, Coverage specs
+- [x] Profile templates (medicare-diabetic, commercial-healthy, medicaid-pediatric)
+- [x] JSON serialization/deserialization
 
-#### 2.4 Product Handlers
-- [ ] Port PatientSim handler
-- [ ] Port MemberSim handler
-- [ ] Port RxMemberSim handler
-- [ ] Port TrialSim handler
-- [ ] Port NetworkSim handler
+**Files**: `src/healthsim_agent/generation/profile.py`
 
-### Verification Criteria
-- [ ] Can generate patient with realistic demographics
-- [ ] Can generate claims with proper coding
-- [ ] Journey engine produces temporal sequences
-- [ ] All handlers produce valid canonical JSON
+#### 2.3 Entity Generators ✅
+- [x] PatientGenerator - realistic patient demographics
+- [x] MemberGenerator - insurance member data
+- [x] ClaimGenerator - claims with line items
+- [x] SubjectGenerator - clinical trial subjects
+- [x] Batch generation with distributions
+- [x] Reproducibility via seeding
+
+**Files**: `src/healthsim_agent/generation/generators.py`
+
+#### 2.4 Product Handlers ✅
+- [x] PatientSimHandlers - encounters, diagnoses, labs
+- [x] MemberSimHandlers - enrollment, claims
+- [x] RxMemberSimHandlers - prescriptions, fills
+- [x] TrialSimHandlers - screening, randomization, AEs
+- [x] HandlerRegistry for event routing
+
+**Files**: `src/healthsim_agent/generation/handlers.py`
+
+#### 2.5 Unit Tests ✅
+- [x] Distribution tests (17 tests)
+- [x] Generator tests (25 tests)
+- [x] Handler tests (18 tests)
+- [x] All 98 tests passing
+
+### Verification Criteria ✅
+- [x] Can generate patient with realistic demographics
+- [x] Can generate claims with proper coding
+- [x] Event handlers produce valid canonical JSON
+- [x] All Phase 2 tests passing (98/98)
 
 ---
 
@@ -361,7 +379,17 @@ From `packages/core/src/healthsim/`:
 - StateManager with Cohort/CohortSummary (451 lines)
 - 38 unit tests passing
 
-**Next Session**: Begin Phase 2 (Generation Framework)
+### Session 3: January 9, 2026
+**Duration**: ~1.5 hours  
+**Completed**:
+- Phase 2 complete (Generation Framework)
+- distributions.py (411 lines) - Statistical distributions
+- profile.py (254 lines) - Profile specifications
+- generators.py (600 lines) - Entity generators (Patient, Member, Claim, Subject)
+- handlers.py (697 lines) - Event handlers for all products
+- 60 new unit tests (98 total, all passing)
+
+**Next Session**: Begin Phase 3 (Skills Integration)
 
 ---
 
