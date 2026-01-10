@@ -58,10 +58,13 @@ class ExportResult:
     files_created: list[str] = field(default_factory=list)
 
     def to_summary(self) -> str:
-        lines = ["SDTM Export Summary", "=" * 40,
-                 f"Status: {'Success' if self.success else 'Failed'}", "", "Domains:"]
+        lines = [
+            "SDTM Export Summary", "=" * 40,
+            f"Status: {'Success' if self.success else 'Failed'}", "", "Domains:",
+        ]
         for domain in self.domains_exported:
-            lines.append(f"  {domain.value}: {self.record_counts.get(domain.value, 0)} records")
+            count = self.record_counts.get(domain.value, 0)
+            lines.append(f"  {domain.value}: {count} records")
         if self.warnings:
             lines.extend(["", "Warnings:"] + [f"  - {w}" for w in self.warnings[:5]])
         if self.errors:
@@ -94,7 +97,7 @@ class SDTMExporter:
 
         for domain in domains:
             try:
-                records = None
+                records = []
                 if domain == SDTMDomain.DM and subjects:
                     records = self._convert_dm(subjects)
                 elif domain == SDTMDomain.AE and adverse_events:
@@ -132,8 +135,6 @@ class SDTMExporter:
                 "SUBJID": subj.subject_id,
                 "SITEID": subj.site_id,
                 "RFSTDTC": self._format_date(ref_start),
-                "RFENDTC": "",
-                "RFICDTC": self._format_date(subj.screening_date),
                 "AGE": subj.age,
                 "AGEU": "YEARS",
                 "SEX": self._map_sex(subj.sex),
@@ -141,10 +142,7 @@ class SDTMExporter:
                 "ETHNIC": subj.ethnicity or "",
                 "ARMCD": arm_code,
                 "ARM": arm_desc,
-                "ACTARMCD": arm_code,
-                "ACTARM": arm_desc,
                 "COUNTRY": "USA",
-                "DMDTC": self._format_date(ref_start),
             })
         return records
 
@@ -170,7 +168,6 @@ class SDTMExporter:
                 "AETERM": ae.ae_term,
                 "AEDECOD": ae.ae_term,
                 "AEBODSYS": ae.system_organ_class or "",
-                "AESOC": ae.system_organ_class or "",
                 "AESEV": self._map_severity(ae.severity),
                 "AESER": "Y" if ae.is_serious else "N",
                 "AEREL": self._map_causality(ae.causality),
@@ -178,8 +175,6 @@ class SDTMExporter:
                 "AESTDTC": self._format_date(ae.onset_date),
                 "AEENDTC": self._format_date(ae.resolution_date),
                 "AESTDY": self._calc_study_day(ae.onset_date, ref_date),
-                "AEENDY": self._calc_study_day(ae.resolution_date, ref_date),
-                "AECONTRT": "Y" if ae.treatment_required else "N",
             })
         return records
 
@@ -209,7 +204,6 @@ class SDTMExporter:
                 "EXSTDTC": self._format_date(exp.start_date),
                 "EXENDTC": self._format_date(exp.end_date),
                 "EXSTDY": self._calc_study_day(exp.start_date, ref_date),
-                "EXENDY": self._calc_study_day(exp.end_date, ref_date),
             })
         return records
 
@@ -224,7 +218,7 @@ class SDTMExporter:
             site_id = visit.site_id or (subj.site_id if subj else "SITE01")
             visit_date = visit.actual_date or visit.planned_date
 
-            record = {
+            records.append({
                 "STUDYID": self.config.study_id,
                 "DOMAIN": "SV",
                 "USUBJID": f"{self.config.study_id}-{site_id}-{visit.subject_id}",
@@ -234,32 +228,22 @@ class SDTMExporter:
                 "SVSTDTC": self._format_date(visit_date),
                 "SVENDTC": self._format_date(visit_date),
                 "SVSTDY": self._calc_study_day(visit_date, ref_date),
-            }
-            if visit.visit_type == VisitType.UNSCHEDULED:
-                record["SVUPDES"] = "Unscheduled visit"
-            records.append(record)
+            })
         return records
 
     def _write_domain(self, domain: SDTMDomain, records: list[dict], output_path: Path | None, format: ExportFormat) -> Path | None:
-        """Write domain records to file."""
         if not output_path or not records:
             return None
         filepath = output_path / f"{domain.value.lower()}.{format.value}"
         if format == ExportFormat.CSV:
-            self._write_csv(records, filepath)
+            with open(filepath, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=list(records[0].keys()))
+                writer.writeheader()
+                writer.writerows(records)
         elif format == ExportFormat.JSON:
-            self._write_json(records, filepath)
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(records, f, indent=2, default=str)
         return filepath
-
-    def _write_csv(self, records: list[dict], filepath: Path) -> None:
-        with open(filepath, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=list(records[0].keys()))
-            writer.writeheader()
-            writer.writerows(records)
-
-    def _write_json(self, records: list[dict], filepath: Path) -> None:
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(records, f, indent=2, default=str)
 
     def _format_date(self, d: date | datetime | None) -> str:
         if d is None:
@@ -293,23 +277,20 @@ class SDTMExporter:
 
     def _map_outcome(self, outcome: AEOutcome) -> str:
         return {
-            AEOutcome.RECOVERED: "RECOVERED/RESOLVED",
-            AEOutcome.RECOVERING: "RECOVERING/RESOLVING",
+            AEOutcome.RECOVERED: "RECOVERED/RESOLVED", AEOutcome.RECOVERING: "RECOVERING/RESOLVING",
             AEOutcome.NOT_RECOVERED: "NOT RECOVERED/NOT RESOLVED",
             AEOutcome.RECOVERED_WITH_SEQUELAE: "RECOVERED/RESOLVED WITH SEQUELAE",
             AEOutcome.FATAL: "FATAL", AEOutcome.UNKNOWN: "UNKNOWN",
         }.get(outcome, "UNKNOWN")
 
     def _map_route(self, route: str) -> str:
-        return {"oral": "ORAL", "iv": "INTRAVENOUS", "sc": "SUBCUTANEOUS",
-                "im": "INTRAMUSCULAR", "topical": "TOPICAL"}.get(route.lower(), route.upper())
+        return {"oral": "ORAL", "iv": "INTRAVENOUS", "sc": "SUBCUTANEOUS", "im": "INTRAMUSCULAR"}.get(route.lower(), route.upper())
 
     def _map_epoch(self, visit_type: VisitType) -> str:
         return {
             VisitType.SCREENING: "SCREENING", VisitType.BASELINE: "BASELINE",
             VisitType.RANDOMIZATION: "TREATMENT", VisitType.SCHEDULED: "TREATMENT",
-            VisitType.UNSCHEDULED: "TREATMENT", VisitType.FOLLOW_UP: "FOLLOW-UP",
-            VisitType.EARLY_TERMINATION: "TREATMENT", VisitType.END_OF_STUDY: "END OF STUDY",
+            VisitType.FOLLOW_UP: "FOLLOW-UP", VisitType.END_OF_STUDY: "END OF STUDY",
         }.get(visit_type, "TREATMENT")
 
 
@@ -329,12 +310,4 @@ def export_to_sdtm(
     )
 
 
-def create_sdtm_exporter(study_id: str = "STUDY01", sponsor: str = "SPONSOR") -> SDTMExporter:
-    """Create an SDTM exporter with configuration."""
-    return SDTMExporter(ExportConfig(study_id=study_id, sponsor=sponsor))
-
-
-__all__ = [
-    "ExportFormat", "ExportConfig", "ExportResult",
-    "SDTMExporter", "export_to_sdtm", "create_sdtm_exporter",
-]
+__all__ = ["SDTMExporter", "ExportConfig", "ExportResult", "ExportFormat", "export_to_sdtm"]
