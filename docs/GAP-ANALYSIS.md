@@ -1,293 +1,203 @@
-# HealthSim Agent Gap Analysis
-## Comparing Implementation vs. Original Workspace Inventory
-
-**Generated**: January 10, 2026  
-**Purpose**: Pre-Phase 6 checkpoint to identify implementation gaps
-
----
+# HealthSim Agent - Comprehensive Gap Analysis
 
 ## Executive Summary
 
-Based on the original `healthsim-implementation-inventory.md`, we've successfully ported:
-- ✅ **Database Layer** - 100% complete
-- ✅ **MCP/Agent Tools** - 100% complete (10 tools)
-- ✅ **Skills System** - 100% complete (175 skills, routing)
-- ✅ **UI Layer** - 100% complete (enhanced beyond original)
-- ⚠️ **State Management** - ~50% complete
-- ⚠️ **Generation Framework** - ~30% complete
-
-**Critical Gap**: The Journey Engine and Profile Executor - the core of what makes HealthSim *generate* data from natural language - are NOT implemented.
+**Current State**: ~23,400 lines ported from core package
+**Source Total**: ~28,000 lines (core) + ~46,000 lines (product packages) = ~74,000 lines
+**Gap Assessment**: Core is ~85% complete; product packages not yet addressed
 
 ---
 
-## Detailed Comparison
+## 1. Core Package Status (packages/core/)
 
-### 1. Database Layer ✅ COMPLETE
+| Directory | Source Lines | Target Status | Notes |
+|-----------|-------------|---------------|-------|
+| benefits/ | ~900 | ✅ Complete | Accumulator tracking |
+| config/ | ~430 | ✅ Complete | Settings, dimensional config |
+| db/ | ~400 | ✅ Partial | Connection manager done |
+| db/migrate/ | ~8,000 | ❌ Missing | JSON cohort migration |
+| db/reference/ | ~12,300 | ❌ Missing | Reference data loaders |
+| dimensional/ | ~1,916 | ❌ Missing | Analytics output writers |
+| formats/ | ~530 | ✅ Complete | Base transformers, exporters |
+| generation/ | ~12,000 | ✅ Complete | All modules ported |
+| mcp/ | ~2,000 | ⏭️ Skip | Not needed for Agent SDK |
+| person/ | ~700 | ✅ Complete | Demographics, identifiers |
+| skills/ | ~300 | ✅ Complete | Schema definitions |
+| state/ | ~2,000 | ✅ Complete | Entity, workspace, journey |
+| temporal/ | ~500 | ✅ Complete | Timeline, periods, utils |
+| validation/ | ~520 | ✅ Complete | Framework, structural, temporal |
 
-| Workspace File | Lines | Agent File | Lines | Status |
-|---------------|-------|------------|-------|--------|
-| `db/schema.py` | 700 | `db/schema.py` | 443 | ✅ Adapted |
-| `db/queries.py` | 170 | `db/queries.py` | 414 | ✅ Expanded |
-| `db/connection.py` | 150 | `db/connection.py` | 164 | ✅ Ported |
-| `db/migrations.py` | 500 | (N/A) | - | ⚪ Not needed |
-
-**Notes**: Schema migrations not needed since we're using existing database.
-
----
-
-### 2. State Management ⚠️ 50% COMPLETE
-
-| Workspace File | Lines | Agent File | Lines | Status |
-|---------------|-------|------------|-------|--------|
-| `state/manager.py` | 900 | `state/manager.py` | 451 | ⚠️ Partial |
-| `state/session.py` | 260 | `state/session.py` | 221 | ✅ Ported |
-| `state/summary.py` | 450 | (in manager) | - | ✅ Merged |
-| `state/auto_persist.py` | 1500 | - | 0 | ❌ MISSING |
-| `state/serializers.py` | 700 | - | 0 | ❌ MISSING |
-| `state/journey_manager.py` | 600 | - | 0 | ❌ MISSING |
-| `state/profile_manager.py` | 500 | - | 0 | ❌ MISSING |
-| `state/provenance.py` | 120 | - | 0 | ❌ MISSING |
-| `state/auto_naming.py` | 250 | - | 0 | ❌ MISSING |
-
-**Missing Capabilities**:
-- Auto-persistence (token-efficient saving)
-- Entity serialization to canonical tables
-- Journey state tracking
-- Profile state tracking
-- Entity provenance
-- Auto-generated cohort names
+**Core Gap**: ~22,000 lines in db/migrate, db/reference, dimensional
 
 ---
 
-### 3. Generation Framework ⚠️ 30% COMPLETE
+## 2. Product Packages Status
 
-| Workspace File | Lines | Agent File | Lines | Status |
-|---------------|-------|------------|-------|--------|
-| `generation/distributions.py` | 580 | `generation/distributions.py` | 411 | ⚠️ 70% |
-| `generation/profile_schema.py` | 240 | `generation/profile.py` | 254 | ✅ Ported |
-| `generation/profile_executor.py` | 510 | - | 0 | ❌ MISSING |
-| `generation/handlers.py` | 1300 | `generation/handlers.py` | 697 | ⚠️ 54% |
-| `generation/base.py` | 240 | `generation/generators.py` | 600 | ✅ Merged |
-| `generation/journey_engine.py` | 1400 | - | 0 | ❌ MISSING |
-| `generation/journey_validation.py` | 820 | - | 0 | ❌ MISSING |
-| `generation/cross_domain_sync.py` | 670 | - | 0 | ❌ MISSING |
-| `generation/triggers.py` | 470 | - | 0 | ❌ MISSING |
-| `generation/orchestrator.py` | 350 | - | 0 | ❌ MISSING |
-| `generation/reference_profiles.py` | 660 | - | 0 | ❌ MISSING |
-| `generation/networksim_reference.py` | 690 | (in tools) | - | ⚠️ Partial |
-| `generation/skill_registry.py` | 550 | - | 0 | ❌ MISSING |
-| `generation/skill_reference.py` | 540 | - | 0 | ❌ MISSING |
-| `generation/skill_journeys.py` | 420 | - | 0 | ❌ MISSING |
-| `generation/auto_journeys.py` | 450 | - | 0 | ❌ MISSING |
+| Package | Source Lines | Target Status | Key Components |
+|---------|-------------|---------------|----------------|
+| patientsim/ | ~19,443 | ❌ Not Started | Core models, C-CDA, MIMIC, HL7v2, FHIR |
+| membersim/ | ~8,768 | ❌ Not Started | Core models, X12 (834/835/837), quality |
+| rxmembersim/ | ~12,805 | ❌ Not Started | Core models, NCPDP D.0, X12 |
+| trialsim/ | ~5,008 | ❌ Not Started | Core models, SDTM, journeys |
+| **Total** | **~46,024** | | |
 
-**What Works**:
-- Basic distributions (8 types)
-- ProfileSpecification schema
-- PatientGenerator, MemberGenerator, ClaimGenerator, SubjectGenerator
-- Basic event handlers for each product
+### Product Package Contents Detail
 
-**Missing Critical Capabilities**:
-- **Journey Engine** - Timeline-based event execution
-- **Profile Executor** - Turn ProfileSpecification → Generated Entities
-- **Cross-Domain Sync** - Synchronize entities across products
-- **Triggers** - Cross-product event triggering
-- **Orchestrator** - Coordinate Profile + Journey execution
-- **Skill Integration** - Use skills to drive generation
+**PatientSim** (~19,443 lines):
+```
+core/           - models.py, generator.py, timeline.py, state.py, reference_data.py
+formats/ccda/   - transformer.py, sections.py, narratives.py, entries.py, validators.py
+formats/mimic/  - transformer.py, schema.py
+formats/hl7v2/  - segments.py, messages.py
+formats/fhir/   - transformer.py
+```
 
----
+**MemberSim** (~8,768 lines):
+```
+core/           - models.py, member.py, subscriber.py, plan.py, provider.py, accumulator.py
+formats/x12/    - base.py, edi_834.py, edi_835.py, edi_837.py, edi_270_271.py, edi_278.py
+formats/fhir.py
+quality/        - measure.py
+```
 
-### 4. MCP/Agent Tools ✅ COMPLETE
+**RxMemberSim** (~12,805 lines):
+```
+core/           - member.py, drug.py, prescription.py, pharmacy.py, prescriber.py
+formats/ncpdp/  - telecom.py, script.py, epa.py, reject_codes.py
+formats/x12/    - edi_835.py
+```
 
-| Workspace Tool | Agent Tool | Status |
-|---------------|------------|--------|
-| `healthsim_list_cohorts` | `list_cohorts` | ✅ |
-| `healthsim_load_cohort` | `load_cohort` | ✅ |
-| `healthsim_save_cohort` | `save_cohort` | ✅ |
-| `healthsim_add_entities` | `add_entities` | ✅ |
-| `healthsim_delete_cohort` | `delete_cohort` | ✅ |
-| `healthsim_query` | `query` | ✅ |
-| `healthsim_get_cohort_summary` | `get_summary` | ✅ |
-| `healthsim_query_reference` | `query_reference` | ✅ |
-| `healthsim_search_providers` | `search_providers` | ✅ |
-| `healthsim_tables` | `list_tables` | ✅ |
+**TrialSim** (~5,008 lines):
+```
+core/           - models.py, generator.py
+formats/sdtm/   - domains.py, exporter.py
+journeys/       - templates.py, handlers.py, compat.py
+adverse_events/, exposures/, visits/, subjects/
+```
 
 ---
 
-### 5. Skills System ✅ COMPLETE
+## 3. Reference Data Status
 
-| Component | Status |
+### DuckDB Database (healthsim-reference.duckdb) - ✅ Complete
+| Schema | Tables | Status |
+|--------|--------|--------|
+| main/ | 24 entity tables | ✅ Present |
+| population/ | 5 CDC/Census tables | ✅ Present |
+| network/ | 5 provider/facility tables | ✅ Present |
+
+### Local Reference Files
+| Location | Content | Status |
+|----------|---------|--------|
+| references/ | Clinical domain docs, code systems | 📁 In workspace only |
+| formats/ | Format documentation (C-CDA, X12, NCPDP, SDTM) | 📁 In workspace only |
+| scenarios/*/data/ | Product-specific data files | 📁 In workspace only |
+
+---
+
+## 4. Decision Matrix: What to Port?
+
+### Must Have (Core Functionality)
+| Component | Lines | Rationale |
+|-----------|-------|-----------|
+| dimensional/ | ~1,916 | Analytics output is core feature |
+| db/reference/ (loader.py, populationsim.py) | ~200 | Reference data access |
+
+### Should Have (Full Feature Parity)
+| Component | Lines | Rationale |
+|-----------|-------|-----------|
+| Product core models | ~3,000 | Canonical data structures |
+| Product format transformers | ~15,000 | Output format support |
+
+### Could Defer (Specialized Features)
+| Component | Lines | Rationale |
+|-----------|-------|-----------|
+| db/migrate/ (json_cohorts.py) | ~8,000 | Cohort migration utility |
+| Quality measures | ~500 | MemberSim-specific |
+| MIMIC format | ~500 | Specialized output format |
+
+---
+
+## 5. Architecture Decision: Product Code Strategy
+
+### Option A: Port All Product Packages (~46,000 lines)
+**Pros**: Complete feature parity, all formats available
+**Cons**: Large effort, may duplicate Skills-based generation
+
+### Option B: Port Core Models Only (~3,000 lines)
+**Pros**: Canonical data structures, smaller scope
+**Cons**: No format transformers, limited output options
+
+### Option C: Lazy Loading / On-Demand
+**Pros**: Start small, add as needed
+**Cons**: May need refactoring later
+
+### Recommendation: **Option B + dimensional/**
+1. Port dimensional/ (~1,916 lines) - Analytics output
+2. Port product core models (~3,000 lines) - Canonical structures
+3. Port db/reference/ loaders (~200 lines) - Reference data access
+4. Defer format transformers - Skills can guide Claude to generate formats
+
+**Total New Work**: ~5,116 lines
+**Resulting Coverage**: Core infrastructure + canonical models + analytics output
+
+---
+
+## 6. PopulationSim & NetworkSim Status
+
+### PopulationSim
+- **Data**: ✅ Embedded in DuckDB (population schema)
+- **Code**: Uses core generation framework + Skills
+- **Python Package**: None (Skills-only product)
+
+### NetworkSim
+- **Data**: ✅ Embedded in DuckDB (network schema with 8.9M providers)
+- **Code**: Uses networksim_reference.py (already ported)
+- **Python Package**: None (Skills-only product)
+- **Status**: v2 data infrastructure complete, Skills define queries
+
+---
+
+## 7. Recommended Action Plan
+
+### Phase 1: Complete Core Gaps (This Session)
+1. [ ] Port dimensional/ package (~1,916 lines)
+   - writers/base.py
+   - writers/duckdb_writer.py
+   - writers/databricks_writer.py
+   - writers/registry.py
+   - transformers/base.py
+   - generators/dim_date.py
+
+2. [ ] Port db/reference/ loaders (~200 lines)
+   - loader.py
+   - populationsim.py
+
+### Phase 2: Add Product Core Models (Next Session)
+3. [ ] Create products/ directory structure
+4. [ ] Port core models from each product:
+   - patientsim/core/models.py
+   - membersim/core/models.py
+   - rxmembersim/core/models.py
+   - trialsim/core/models.py
+
+### Phase 3: Integration Testing
+5. [ ] End-to-end generation tests
+6. [ ] Format output validation
+7. [ ] DuckDB analytics output verification
+
+---
+
+## 8. Files Not Needed
+
+| Component | Reason |
 |-----------|--------|
-| SkillLoader (YAML parsing) | ✅ |
-| SkillRouter (trigger matching) | ✅ |
-| 175 skill files | ✅ Copied |
-| Trigger index (557 phrases) | ✅ |
+| mcp/ | Agent uses Agent SDK, not MCP |
+| db/migrate/json_cohorts.py | Cohort migration utility, defer |
+| Product format transformers | Skills guide Claude for format generation |
+| Product MCP servers | Agent SDK replaces MCP |
 
 ---
 
-### 6. UI Layer ✅ COMPLETE (Enhanced)
-
-| Workspace | Agent | Status |
-|-----------|-------|--------|
-| Basic terminal | Rich terminal | ✅ Enhanced |
-| - | GitHub Dark theme | ✅ New |
-| - | Streaming support | ✅ New |
-| - | Contextual suggestions | ✅ New |
-| - | Status bar | ✅ New |
-
----
-
-### 7. Formats/Output ❌ NOT IMPLEMENTED
-
-| Format | Status |
-|--------|--------|
-| FHIR R4 | ❌ Not ported |
-| HL7v2 | ❌ Not ported |
-| X12 837/835/834 | ❌ Not ported |
-| CDISC SDTM/ADaM | ❌ Not ported |
-| Canonical JSON | ✅ (via generators) |
-
----
-
-## Impact Assessment
-
-### What Currently Works
-
-1. **Cohort Storage & Retrieval** ✅
-   - Save cohorts to DuckDB
-   - Load cohorts
-   - Query cohort data
-   - List/delete cohorts
-
-2. **Reference Data Access** ✅
-   - Search NPPES providers
-   - Query CDC PLACES, SVI, ADI
-   - Geographic population data
-
-3. **Basic Entity Generation** ✅
-   - PatientGenerator can create patients
-   - MemberGenerator can create members
-   - ClaimGenerator can create claims
-   - SubjectGenerator can create subjects
-
-4. **Skill Discovery** ✅
-   - Load and parse skills
-   - Route by trigger phrase
-   - Find related skills
-
-### What Does NOT Work
-
-1. **Profile-Driven Generation** ❌
-   - Cannot execute a ProfileSpecification to generate entities
-   - Cannot use demographic references from PopulationSim
-   - Cannot use real providers from NPPES
-
-2. **Journey-Based Events** ❌
-   - Cannot create timeline-based patient journeys
-   - Cannot generate encounters, claims over time
-   - Cannot simulate treatment progressions
-
-3. **Cross-Product Integration** ❌
-   - Cannot sync Patient → Member → RxMember
-   - Cannot trigger claims from encounters
-   - Cannot maintain SSN as universal correlator
-
-4. **Format Export** ❌
-   - Cannot export to FHIR bundles
-   - Cannot create HL7 messages
-   - Cannot generate X12 claims
-
----
-
-## Recommendations
-
-### Option A: Minimal Viable Product (MVP)
-
-Port only what's needed for basic generation:
-- `profile_executor.py` - Execute profiles
-- Link generators to real reference data
-
-**Effort**: ~4-6 hours
-**Result**: Can generate entities from profiles, no journeys
-
-### Option B: Core Generation Complete
-
-Port full generation engine:
-- `profile_executor.py`
-- `journey_engine.py`
-- `journey_validation.py`
-- `orchestrator.py`
-
-**Effort**: ~12-16 hours
-**Result**: Full profile + journey generation working
-
-### Option C: Feature Parity
-
-Port everything from workspace:
-- All generation files
-- All state management
-- Format transformers (FHIR, HL7, X12, CDISC)
-
-**Effort**: ~30-40 hours
-**Result**: Complete parity with workspace
-
-### Recommended Path
-
-**Option B** - Core Generation Complete is the right balance:
-
-1. We already have the building blocks (distributions, generators, handlers)
-2. Profile Executor + Journey Engine are the "brain" that orchestrates generation
-3. Cross-product sync can come later
-4. Format export can come later
-
----
-
-## Test Coverage Analysis
-
-| Module | Tests | Status |
-|--------|-------|--------|
-| Database | 27 | ✅ |
-| State | 24 | ✅ |
-| Tools | 96 | ✅ |
-| Skills | 62 | ✅ |
-| UI | 168 | ✅ |
-| Generation | 47 | ⚠️ Basic only |
-
-**Missing Tests**:
-- Profile execution tests
-- Journey engine tests
-- End-to-end generation integration tests
-
----
-
-## Line Count Summary
-
-| Category | Workspace | Agent | Ported |
-|----------|-----------|-------|--------|
-| Database | ~1,520 | ~1,021 | 67% |
-| State | ~5,760 | ~672 | 12% |
-| Generation | ~10,920 | ~1,962 | 18% |
-| Tools | ~1,600 | ~1,334 | 83% |
-| Skills | ~500 | ~621 | 124% |
-| UI | ~200 | ~1,722 | 861% |
-| **Total** | **~20,500** | **~7,332** | **36%** |
-
-**Note**: UI is enhanced beyond original. Skills system rebuilt (not ported).
-
----
-
-## Conclusion
-
-We've built a solid foundation but are missing the core generation engine:
-- ✅ Can store and query data
-- ✅ Can access reference data
-- ✅ Can discover skills
-- ❌ Cannot execute profiles to generate realistic multi-entity scenarios
-- ❌ Cannot run journey-based event timelines
-- ❌ Cannot coordinate cross-product generation
-
-**Recommendation**: Before Phase 6 Testing, implement at minimum:
-1. `profile_executor.py` - Turn specs into entities
-2. `journey_engine.py` - Timeline event execution
-3. Integration with reference data (PopulationSim demographics)
-
-This will enable the core value proposition: "Generate synthetic healthcare data through conversation."
+*Generated: 2026-01-10*
+*Source: healthsim-workspace, healthsim-agent comparison*
