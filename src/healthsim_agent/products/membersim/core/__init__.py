@@ -2,6 +2,8 @@
 
 from healthsim_agent.products.membersim.core.generator import MemberGenerator
 from healthsim_agent.products.membersim.core.models import (
+    Accumulator,
+    Address,
     Claim,
     ClaimLine,
     ClaimStatus,
@@ -9,15 +11,23 @@ from healthsim_agent.products.membersim.core.models import (
     CoverageType,
     Enrollment,
     Member,
+    Name,
+    Plan,
+    SAMPLE_PLANS,
 )
 
 __all__ = [
-    "Member",
-    "Coverage",
-    "Enrollment",
+    "Accumulator",
+    "Address",
     "Claim",
     "ClaimLine",
-    "CoverageType",
     "ClaimStatus",
+    "Coverage",
+    "CoverageType",
+    "Enrollment",
+    "Member",
     "MemberGenerator",
+    "Name",
+    "Plan",
+    "SAMPLE_PLANS",
 ]
