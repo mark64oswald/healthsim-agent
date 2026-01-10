@@ -358,6 +358,81 @@ class AgeDistribution:
         ])
 
 
+class ConditionalDistribution:
+    """Distribution that varies based on entity attributes.
+
+    Evaluates conditions against a context dictionary and selects
+    the appropriate distribution.
+
+    Example:
+        >>> dist = ConditionalDistribution(rules=[
+        ...     {"condition": "severity == 'controlled'",
+        ...      "distribution": {"type": "normal", "mean": 6.5, "std_dev": 0.3}},
+        ...     {"condition": "severity == 'uncontrolled'",
+        ...      "distribution": {"type": "normal", "mean": 8.5, "std_dev": 1.0}},
+        ... ])
+        >>> value = dist.sample(context={"severity": "controlled"})  # ~6.5
+    """
+
+    def __init__(self, rules: list[dict[str, Any]], default: dict[str, Any] | None = None):
+        """Initialize conditional distribution.
+
+        Args:
+            rules: List of {condition, distribution} dicts
+            default: Default distribution if no condition matches
+        """
+        self.rules = rules
+        self.default = default
+
+    def _evaluate_condition(self, condition: str, context: dict[str, Any]) -> bool:
+        """Evaluate a simple condition string against context.
+
+        Supports: ==, !=, >=, <=, >, <, and, or
+        """
+        # Simple eval with restricted namespace
+        # For safety, only allow certain operations
+        try:
+            # Replace attribute access with dict access
+            expr = condition
+            for key in context:
+                # Handle string values
+                if isinstance(context[key], str):
+                    expr = expr.replace(f"{key}", f"context['{key}']")
+                else:
+                    expr = expr.replace(f"{key}", f"context['{key}']")
+
+            return eval(expr, {"context": context, "__builtins__": {}})
+        except Exception:
+            return False
+
+    def sample(
+        self,
+        context: dict[str, Any],
+        rng: random.Random | None = None,
+    ) -> Any:
+        """Sample from the appropriate distribution based on context.
+
+        Args:
+            context: Dictionary of entity attributes for condition evaluation
+            rng: Random number generator
+
+        Returns:
+            Sampled value from matching distribution
+        """
+        for rule in self.rules:
+            condition = rule.get("condition", "")
+            if self._evaluate_condition(condition, context):
+                dist = create_distribution(rule["distribution"])
+                return dist.sample(rng)
+
+        # No condition matched, use default
+        if self.default:
+            dist = create_distribution(self.default)
+            return dist.sample(rng)
+
+        raise ValueError("No condition matched and no default distribution")
+
+
 def create_distribution(spec: dict[str, Any]) -> Distribution:
     """Factory function to create a distribution from a specification.
 

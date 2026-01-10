@@ -518,8 +518,140 @@ class RxMemberSimHandlers:
         handlers = {
             "prescription": self.handle_prescription,
             "fill": self.handle_fill,
+            "new_rx": self.handle_prescription,  # Alias
+            "refill": self.handle_refill,
+            "reversal": self.handle_reversal,
+            "therapy_start": self.handle_therapy_start,
+            "therapy_change": self.handle_therapy_change,
+            "therapy_discontinue": self.handle_therapy_discontinue,
+            "adherence_gap": self.handle_adherence_gap,
         }
         return handlers.get(event_type)
+    
+    def handle_refill(
+        self,
+        entity: Any,
+        event: TimelineEvent,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Handle prescription refill event."""
+        member_id = self._get_entity_id(entity)
+        params = event.parameters
+        
+        fill_id = self._generate_id("FILL", member_id, event.timeline_event_id)
+        fill_number = params.get("fill_number", 2)
+        
+        return {
+            "fill_id": fill_id,
+            "prescription_id": params.get("prescription_id"),
+            "member_id": member_id,
+            "fill_date": event.scheduled_date.isoformat(),
+            "quantity_dispensed": params.get("quantity", 30),
+            "days_supply": params.get("days_supply", 30),
+            "fill_number": fill_number,
+            "is_refill": True,
+            "status": "dispensed",
+        }
+    
+    def handle_reversal(
+        self,
+        entity: Any,
+        event: TimelineEvent,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Handle claim reversal event."""
+        member_id = self._get_entity_id(entity)
+        params = event.parameters
+        
+        return {
+            "fill_id": params.get("fill_id"),
+            "member_id": member_id,
+            "reversal_date": event.scheduled_date.isoformat(),
+            "reversal_reason": params.get("reason", "returned_to_stock"),
+            "status": "reversed",
+        }
+    
+    def handle_therapy_start(
+        self,
+        entity: Any,
+        event: TimelineEvent,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Handle therapy start event."""
+        member_id = self._get_entity_id(entity)
+        params = event.parameters
+        
+        therapy_id = self._generate_id("THR", member_id, event.timeline_event_id)
+        
+        return {
+            "therapy_id": therapy_id,
+            "member_id": member_id,
+            "therapy_class": params.get("therapy_class", "antidiabetic"),
+            "drug_name": params.get("drug_name", "Metformin"),
+            "start_date": event.scheduled_date.isoformat(),
+            "indication": params.get("indication", "Type 2 Diabetes"),
+            "status": "active",
+        }
+    
+    def handle_therapy_change(
+        self,
+        entity: Any,
+        event: TimelineEvent,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Handle therapy change event."""
+        member_id = self._get_entity_id(entity)
+        params = event.parameters
+        
+        return {
+            "therapy_id": params.get("therapy_id"),
+            "member_id": member_id,
+            "change_date": event.scheduled_date.isoformat(),
+            "change_type": params.get("change_type", "dose_adjustment"),
+            "old_drug": params.get("old_drug"),
+            "new_drug": params.get("new_drug"),
+            "reason": params.get("reason", "therapeutic_optimization"),
+        }
+    
+    def handle_therapy_discontinue(
+        self,
+        entity: Any,
+        event: TimelineEvent,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Handle therapy discontinuation event."""
+        member_id = self._get_entity_id(entity)
+        params = event.parameters
+        
+        return {
+            "therapy_id": params.get("therapy_id"),
+            "member_id": member_id,
+            "discontinue_date": event.scheduled_date.isoformat(),
+            "reason": params.get("reason", "therapy_complete"),
+            "status": "discontinued",
+        }
+    
+    def handle_adherence_gap(
+        self,
+        entity: Any,
+        event: TimelineEvent,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Handle adherence gap event."""
+        member_id = self._get_entity_id(entity)
+        params = event.parameters
+        
+        gap_id = self._generate_id("ADH", member_id, event.timeline_event_id)
+        
+        return {
+            "gap_id": gap_id,
+            "member_id": member_id,
+            "therapy_class": params.get("therapy_class"),
+            "drug_name": params.get("drug_name"),
+            "gap_start_date": event.scheduled_date.isoformat(),
+            "days_without_medication": params.get("gap_days", 7),
+            "status": "open",
+        }
 
 
 # =============================================================================

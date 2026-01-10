@@ -79,6 +79,14 @@ class FacilityReference(BaseModel):
     assignment: Literal["random", "nearest", "round_robin"] = "random"
 
 
+class NetworkSimSpec(BaseModel):
+    """NetworkSim provider and facility assignment specification."""
+    primary_care_provider: ProviderReference | None = None
+    specialists: dict[str, ProviderReference] | None = None
+    primary_facility: FacilityReference | None = None
+    facility_types: dict[str, FacilityReference] | None = None
+
+
 class DemographicsSpec(BaseModel):
     """Demographic attributes specification."""
     age: DistributionSpec | None = None

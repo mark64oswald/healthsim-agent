@@ -26,6 +26,14 @@ from .models import (
     EmbeddedConfig,
     SkillIndex,
 )
+from .schema import (
+    SkillType,
+    ParameterType,
+    SkillMetadata as SchemaSkillMetadata,
+    SkillParameter,
+    SkillVariation,
+    Skill,
+)
 
 __all__ = [
     # Main classes
@@ -37,4 +45,11 @@ __all__ = [
     "SkillMetadata",
     "EmbeddedConfig",
     "SkillIndex",
+    # Schema (Pydantic models)
+    "SkillType",
+    "ParameterType",
+    "SchemaSkillMetadata",
+    "SkillParameter",
+    "SkillVariation",
+    "Skill",
 ]
