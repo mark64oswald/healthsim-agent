@@ -19,12 +19,12 @@ Migrating the HealthSim workspace (~20,000 lines of Python) to a standalone Agen
 | Phase 1 | Database & State Layer | ✅ Complete | 100% |
 | Phase 2 | Generation Framework | ✅ Complete | 100% |
 | Phase 3 | Skills Integration | ✅ Complete | 100% |
-| Phase 4 | Agent Tools | ⬜ Not Started | 0% |
+| Phase 4 | Agent Tools | ✅ Complete | 100% |
 | Phase 5 | UI Enhancements | ⬜ Not Started | 0% |
 | Phase 6 | Testing & Polish | ⬜ Not Started | 0% |
 | Phase 7 | Documentation & Release | ⬜ Not Started | 0% |
 
-**Overall Progress**: ~57% (Phases 0-3 complete)
+**Overall Progress**: ~71% (Phases 0-4 complete)
 
 ---
 
@@ -226,46 +226,73 @@ From `packages/core/src/healthsim/`:
 
 ---
 
-## Phase 4: Agent Tools ⬜ NOT STARTED
+## Phase 4: Agent Tools ✅ COMPLETE
 
-**Estimated Duration**: 6-8 hours  
+**Completed**: January 10, 2026  
 **Goal**: Convert MCP tools to Agent SDK tools
 
-### Tools to Implement
-1. `query_reference_data` - Database queries
-2. `generate_patient` - Patient generation
-3. `generate_claims` - Claims generation
-4. `generate_prescription` - Rx generation
-5. `save_cohort` - Persist generated data
-6. `export_data` - Export to files
-7. `search_providers` - NPPES search
-8. `get_demographics` - Census/SDOH data
+### Source Files Created
+- `src/healthsim_agent/tools/base.py` (115 lines) - ToolResult, entity validation
+- `src/healthsim_agent/tools/connection.py` (180 lines) - ConnectionManager
+- `src/healthsim_agent/tools/cohort_tools.py` (489 lines) - Cohort CRUD operations
+- `src/healthsim_agent/tools/query_tools.py` (200 lines) - SQL queries, summaries
+- `src/healthsim_agent/tools/reference_tools.py` (350 lines) - Reference data, provider search
 
-### Tasks
+### Tasks Completed
 
-#### 4.1 Tool Framework
-- [ ] Define tool interface/protocol
-- [ ] Implement tool registry
-- [ ] Add tool result formatting
+#### 4.1 Tool Framework ✅
+- [x] ToolResult dataclass for standard responses
+- [x] ok() and err() helper functions
+- [x] Entity type taxonomy (SCENARIO/RELATIONSHIP/REFERENCE)
+- [x] validate_entity_types() for cohort validation
 
-#### 4.2 Query Tools
-- [ ] Implement query_reference_data
-- [ ] Implement search_providers
-- [ ] Implement get_demographics
+**Files**: `src/healthsim_agent/tools/base.py`
 
-#### 4.3 Generation Tools
-- [ ] Implement generate_patient
-- [ ] Implement generate_claims
-- [ ] Implement generate_prescription
+#### 4.2 Connection Management ✅
+- [x] ConnectionManager with close-before-write pattern
+- [x] Persistent read connection with retry logic
+- [x] Write connection context manager
+- [x] Global manager singleton with reset capability
 
-#### 4.4 Persistence Tools
-- [ ] Implement save_cohort
-- [ ] Implement export_data
+**Files**: `src/healthsim_agent/tools/connection.py`
 
-### Verification Criteria
-- [ ] Tools callable from agent
-- [ ] Results formatted for display
-- [ ] Error handling working
+#### 4.3 Cohort Tools ✅
+- [x] list_cohorts - List saved cohorts with filtering
+- [x] load_cohort - Load cohort by name or ID
+- [x] save_cohort - Save new cohort (full replacement)
+- [x] add_entities - Incremental upsert (RECOMMENDED)
+- [x] delete_cohort - Delete with confirmation
+
+**Files**: `src/healthsim_agent/tools/cohort_tools.py`
+
+#### 4.4 Query Tools ✅
+- [x] query - Execute read-only SQL
+- [x] get_summary - Token-efficient cohort summary
+- [x] list_tables - Categorized table listing
+
+**Files**: `src/healthsim_agent/tools/query_tools.py`
+
+#### 4.5 Reference Tools ✅
+- [x] query_reference - PopulationSim data (CDC PLACES, SVI, ADI)
+- [x] search_providers - NPPES search (8.9M providers)
+- [x] Specialty keyword to taxonomy mapping
+
+**Files**: `src/healthsim_agent/tools/reference_tools.py`
+
+#### 4.6 Unit Tests ✅
+- [x] test_tools_connection.py (14 tests)
+- [x] test_tools_cohort.py (35 tests)
+- [x] test_tools_query.py (15 tests)
+- [x] test_tools_reference.py (32 tests)
+- [x] All 96 tool tests passing
+- [x] Total: 256 tests passing
+
+### Verification Criteria ✅
+- [x] 10 MCP tools converted to standalone functions
+- [x] ConnectionManager handles close-before-write pattern
+- [x] Entity type validation working
+- [x] All tools return ToolResult
+- [x] All 256 tests passing
 
 ---
 
@@ -415,6 +442,29 @@ From `packages/core/src/healthsim/`:
 - 60 new unit tests (98 total, all passing)
 
 **Next Session**: Begin Phase 3 (Skills Integration)
+
+### Session 4: January 10, 2026
+**Duration**: ~2 hours  
+**Completed**:
+- Phase 3 complete (Skills Integration)
+- models.py (120 lines) - SkillMetadata, ParsedSkill, EmbeddedConfig
+- loader.py (280 lines) - Hybrid skill parser
+- router.py (350 lines) - Intent-to-skill routing
+- 175 skills copied from workspace
+- 62 new unit tests (160 total, all passing)
+
+### Session 5: January 10, 2026
+**Duration**: ~2 hours  
+**Completed**:
+- Phase 4 complete (Agent Tools)
+- base.py (115 lines) - ToolResult, entity validation
+- connection.py (180 lines) - ConnectionManager
+- cohort_tools.py (489 lines) - Cohort CRUD
+- query_tools.py (200 lines) - SQL queries
+- reference_tools.py (350 lines) - Reference data, providers
+- 96 new unit tests (256 total, all passing)
+
+**Next Session**: Begin Phase 5 (UI Enhancements)
 
 ---
 

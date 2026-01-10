@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added - Phase 4: Agent Tools (January 10, 2026)
+- `src/healthsim_agent/tools/base.py` - Tool result container and validation
+  - ToolResult: Standard response format with success/error handling
+  - ok() and err() helper functions
+  - Entity type taxonomy (SCENARIO/RELATIONSHIP/REFERENCE)
+  - validate_entity_types() for cohort validation
+- `src/healthsim_agent/tools/connection.py` - Database connection management
+  - ConnectionManager: Close-before-write pattern for DuckDB
+  - Persistent read connection with retry logic
+  - Write connection context manager with checkpointing
+  - Global singleton with reset capability
+- `src/healthsim_agent/tools/cohort_tools.py` - Cohort CRUD operations
+  - list_cohorts: List saved cohorts with tag/search filtering
+  - load_cohort: Load cohort by name or ID
+  - save_cohort: Save new cohort (full replacement)
+  - add_entities: Incremental upsert with batch support (RECOMMENDED)
+  - delete_cohort: Delete with confirmation requirement
+- `src/healthsim_agent/tools/query_tools.py` - Database query tools
+  - query: Execute read-only SQL with validation
+  - get_summary: Token-efficient cohort summary
+  - list_tables: Categorized table listing
+- `src/healthsim_agent/tools/reference_tools.py` - Reference data tools
+  - query_reference: PopulationSim data (CDC PLACES, SVI, ADI)
+  - search_providers: NPPES provider search (8.9M records)
+  - Specialty keyword to taxonomy code mapping
+- Unit tests: 96 new tests for tools module
+  - test_tools_connection.py: 14 tests
+  - test_tools_cohort.py: 35 tests
+  - test_tools_query.py: 15 tests
+  - test_tools_reference.py: 32 tests
+
 ### Added - Phase 3: Skills Integration (January 10, 2026)
 - `src/healthsim_agent/skills/models.py` - Data models for parsed skills
   - SkillMetadata: YAML frontmatter parsing with trigger extraction
