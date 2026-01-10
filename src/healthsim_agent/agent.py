@@ -260,6 +260,106 @@ TOOL_DEFINITIONS = [
             },
             "required": ["cohort_id"]
         }
+    },
+    # Generation Tools
+    {
+        "name": "generate_patients",
+        "description": "Generate synthetic patient data with optional clinical data (encounters, diagnoses, vitals, labs, medications).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer", "description": "Number of patients (1-100)", "default": 1},
+                "age_range": {"type": "array", "items": {"type": "integer"}, "description": "[min_age, max_age]"},
+                "gender": {"type": "string", "enum": ["male", "female"], "description": "Gender filter"},
+                "include_encounters": {"type": "boolean", "default": False},
+                "include_diagnoses": {"type": "boolean", "default": False},
+                "include_vitals": {"type": "boolean", "default": False},
+                "include_labs": {"type": "boolean", "default": False},
+                "include_medications": {"type": "boolean", "default": False},
+                "diagnosis_categories": {"type": "array", "items": {"type": "string"}},
+                "seed": {"type": "integer", "description": "Random seed for reproducibility"}
+            }
+        }
+    },
+    {
+        "name": "generate_members",
+        "description": "Generate synthetic health plan member data with optional enrollment and claims.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer", "description": "Number of members (1-100)", "default": 1},
+                "age_range": {"type": "array", "items": {"type": "integer"}, "description": "[min_age, max_age]"},
+                "include_enrollment": {"type": "boolean", "default": True},
+                "include_claims": {"type": "boolean", "default": False},
+                "claims_per_member": {"type": "integer", "default": 3},
+                "seed": {"type": "integer"}
+            }
+        }
+    },
+    {
+        "name": "generate_subjects",
+        "description": "Generate synthetic clinical trial subject data with optional visits, adverse events, exposures.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer", "description": "Number of subjects (1-100)", "default": 1},
+                "protocol_id": {"type": "string", "default": "PROTO-001"},
+                "site_id": {"type": "string", "default": "SITE-001"},
+                "age_range": {"type": "array", "items": {"type": "integer"}},
+                "include_visits": {"type": "boolean", "default": False},
+                "include_adverse_events": {"type": "boolean", "default": False},
+                "include_exposures": {"type": "boolean", "default": False},
+                "seed": {"type": "integer"}
+            }
+        }
+    },
+    {
+        "name": "generate_rx_members",
+        "description": "Generate synthetic pharmacy benefit member data.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer", "description": "Number of Rx members (1-100)", "default": 1},
+                "bin_number": {"type": "string", "description": "BIN number (PBM identifier)"},
+                "pcn": {"type": "string", "description": "Processor Control Number"},
+                "group_number": {"type": "string", "description": "Group number"},
+                "seed": {"type": "integer"}
+            }
+        }
+    },
+    {
+        "name": "check_formulary",
+        "description": "Check if a drug is covered on formulary.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "drug_name": {"type": "string", "description": "Name of the drug"},
+                "ndc": {"type": "string", "description": "National Drug Code (optional)"}
+            },
+            "required": ["drug_name"]
+        }
+    },
+    {
+        "name": "list_skills",
+        "description": "List available generation skills/scenarios for a product.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "product": {"type": "string", "enum": ["patientsim", "membersim", "rxmembersim", "trialsim"], "description": "Filter by product"}
+            }
+        }
+    },
+    {
+        "name": "describe_skill",
+        "description": "Get detailed information about a specific skill including examples.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "skill_name": {"type": "string", "description": "Name of the skill"},
+                "product": {"type": "string", "enum": ["patientsim", "membersim", "rxmembersim", "trialsim"]}
+            },
+            "required": ["skill_name", "product"]
+        }
     }
 ]
 
@@ -284,6 +384,10 @@ def _get_tool_executor(tool_name: str) -> Callable | None:
         transform_to_fhir, transform_to_ccda, transform_to_hl7v2,
         transform_to_x12, transform_to_ncpdp, transform_to_mimic, list_output_formats
     )
+    from healthsim_agent.tools.generation_tools import (
+        generate_patients, generate_members, generate_subjects,
+        generate_rx_members, check_formulary, list_skills, describe_skill
+    )
     
     executors = {
         "list_cohorts": list_cohorts,
@@ -303,6 +407,14 @@ def _get_tool_executor(tool_name: str) -> Callable | None:
         "transform_to_ncpdp": transform_to_ncpdp,
         "transform_to_mimic": transform_to_mimic,
         "list_output_formats": list_output_formats,
+        # Generation tools
+        "generate_patients": generate_patients,
+        "generate_members": generate_members,
+        "generate_subjects": generate_subjects,
+        "generate_rx_members": generate_rx_members,
+        "check_formulary": check_formulary,
+        "list_skills": list_skills,
+        "describe_skill": describe_skill,
     }
     
     return executors.get(tool_name)

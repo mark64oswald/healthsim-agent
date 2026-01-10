@@ -1,203 +1,169 @@
-# HealthSim Agent - Comprehensive Gap Analysis
+# HealthSim Agent - Gap Analysis (UPDATED 2026-01-11)
 
-## Executive Summary
+## CURRENT STATUS
 
-**Current State**: ~23,400 lines ported from core package
-**Source Total**: ~28,000 lines (core) + ~46,000 lines (product packages) = ~74,000 lines
-**Gap Assessment**: Core is ~85% complete; product packages not yet addressed
-
----
-
-## 1. Core Package Status (packages/core/)
-
-| Directory | Source Lines | Target Status | Notes |
-|-----------|-------------|---------------|-------|
-| benefits/ | ~900 | ✅ Complete | Accumulator tracking |
-| config/ | ~430 | ✅ Complete | Settings, dimensional config |
-| db/ | ~400 | ✅ Partial | Connection manager done |
-| db/migrate/ | ~8,000 | ❌ Missing | JSON cohort migration |
-| db/reference/ | ~12,300 | ❌ Missing | Reference data loaders |
-| dimensional/ | ~1,916 | ❌ Missing | Analytics output writers |
-| formats/ | ~530 | ✅ Complete | Base transformers, exporters |
-| generation/ | ~12,000 | ✅ Complete | All modules ported |
-| mcp/ | ~2,000 | ⏭️ Skip | Not needed for Agent SDK |
-| person/ | ~700 | ✅ Complete | Demographics, identifiers |
-| skills/ | ~300 | ✅ Complete | Schema definitions |
-| state/ | ~2,000 | ✅ Complete | Entity, workspace, journey |
-| temporal/ | ~500 | ✅ Complete | Timeline, periods, utils |
-| validation/ | ~520 | ✅ Complete | Framework, structural, temporal |
-
-**Core Gap**: ~22,000 lines in db/migrate, db/reference, dimensional
+**Total Tools Implemented: 24**
+**Test Coverage: 623 tests passing**
+**Generation Tools: ALL 4 PRODUCTS WORKING**
 
 ---
 
-## 2. Product Packages Status
+## IMPLEMENTED TOOLS (24 total)
 
-| Package | Source Lines | Target Status | Key Components |
-|---------|-------------|---------------|----------------|
-| patientsim/ | ~19,443 | ❌ Not Started | Core models, C-CDA, MIMIC, HL7v2, FHIR |
-| membersim/ | ~8,768 | ❌ Not Started | Core models, X12 (834/835/837), quality |
-| rxmembersim/ | ~12,805 | ❌ Not Started | Core models, NCPDP D.0, X12 |
-| trialsim/ | ~5,008 | ❌ Not Started | Core models, SDTM, journeys |
-| **Total** | **~46,024** | | |
+### Core Data Management (10 tools) ✅
+| Tool | Status | Tested |
+|------|--------|--------|
+| list_cohorts | ✅ Working | ✅ |
+| load_cohort | ✅ Working | ✅ |
+| save_cohort | ✅ Working | ✅ |
+| add_entities | ✅ Working | ✅ |
+| delete_cohort | ✅ Working | ✅ |
+| query | ✅ Working | ✅ |
+| get_summary | ✅ Working | ✅ |
+| list_tables | ✅ Working | ✅ |
+| query_reference | ✅ Working | ✅ |
+| search_providers | ✅ Working | ✅ |
 
-### Product Package Contents Detail
+### Generation Tools (7 tools) ✅ NEW
+| Tool | Status | Tested |
+|------|--------|--------|
+| generate_patients | ✅ Working | ✅ 13 tests |
+| generate_members | ✅ Working | ✅ 4 tests |
+| generate_subjects | ✅ Working | ✅ 6 tests |
+| generate_rx_members | ✅ Working | ✅ 3 tests |
+| check_formulary | ✅ Working | ✅ |
+| list_skills | ✅ Working | ✅ 3 tests |
+| describe_skill | ✅ Working | ✅ 3 tests |
 
-**PatientSim** (~19,443 lines):
+### Transform Tools (7 tools) ✅
+| Tool | Status | Tested |
+|------|--------|--------|
+| transform_to_fhir | ✅ Working | ✅ |
+| transform_to_ccda | ✅ Working | ✅ |
+| transform_to_hl7v2 | ✅ Working | ✅ |
+| transform_to_x12 | ✅ Working | ✅ |
+| transform_to_ncpdp | ✅ Working | ✅ |
+| transform_to_mimic | ✅ Working | ✅ |
+| list_output_formats | ✅ Working | ✅ |
+
+---
+
+## WHAT THE AGENT CAN NOW DO
+
+### PatientSim (Clinical/EMR)
+- ✅ Generate patients with demographics
+- ✅ Generate encounters
+- ✅ Generate diagnoses (ICD-10)
+- ✅ Generate vital signs
+- ✅ Generate lab results (LOINC)
+- ✅ Generate medications
+- ✅ Export to FHIR R4, C-CDA, HL7v2
+
+### MemberSim (Payer/Claims)
+- ✅ Generate health plan members
+- ✅ Generate enrollment records
+- ✅ Generate medical claims
+- ✅ Export to X12 837/835
+
+### TrialSim (Clinical Trials)
+- ✅ Generate trial subjects
+- ✅ Generate visit schedules
+- ✅ Generate adverse events
+- ✅ Generate drug exposures
+
+### RxMemberSim (Pharmacy/PBM)
+- ✅ Generate pharmacy members
+- ✅ Check formulary coverage
+- ✅ Export to NCPDP
+
+### Skills System
+- ✅ List 128 skills across 6 products
+- ✅ Describe individual skills with examples
+- ✅ Skills stored locally in healthsim-agent/skills/
+
+---
+
+## REMAINING GAPS (for future phases)
+
+### Phase 5: Validation Tools (2 tools)
+- validate_data - Validate any entity type
+- fix_validation_issues - Auto-fix common issues
+
+### Phase 6: Profile/Journey System (14 tools)
+- Profile builder and executor
+- Journey builder and executor  
+- Template management
+
+### Phase 7: Export Enhancements
+- export_json - Generic JSON export
+
+---
+
+## VERIFICATION EVIDENCE
+
+### Unit Tests
 ```
-core/           - models.py, generator.py, timeline.py, state.py, reference_data.py
-formats/ccda/   - transformer.py, sections.py, narratives.py, entries.py, validators.py
-formats/mimic/  - transformer.py, schema.py
-formats/hl7v2/  - segments.py, messages.py
-formats/fhir/   - transformer.py
+623 passed in 8.07s
 ```
 
-**MemberSim** (~8,768 lines):
-```
-core/           - models.py, member.py, subscriber.py, plan.py, provider.py, accumulator.py
-formats/x12/    - base.py, edi_834.py, edi_835.py, edi_837.py, edi_270_271.py, edi_278.py
-formats/fhir.py
-quality/        - measure.py
-```
+### Generation Tool Tests (32 new tests)
+- TestGeneratePatients: 13 tests ✅
+- TestGenerateMembers: 4 tests ✅
+- TestGenerateSubjects: 6 tests ✅
+- TestGenerateRxMembers: 3 tests ✅
+- TestListSkills: 3 tests ✅
+- TestDescribeSkill: 3 tests ✅
 
-**RxMemberSim** (~12,805 lines):
+### End-to-End Tool Execution
+All tools tested through agent's `_get_tool_executor()` mapping:
 ```
-core/           - member.py, drug.py, prescription.py, pharmacy.py, prescriber.py
-formats/ncpdp/  - telecom.py, script.py, epa.py, reject_codes.py
-formats/x12/    - edi_835.py
-```
-
-**TrialSim** (~5,008 lines):
-```
-core/           - models.py, generator.py
-formats/sdtm/   - domains.py, exporter.py
-journeys/       - templates.py, handlers.py, compat.py
-adverse_events/, exposures/, visits/, subjects/
+✓ generate_patients({"count": 3, "include_encounters": true, "include_diagnoses": true})
+   → Generated 3 patients, 3 encounters, 7 diagnoses
+✓ generate_members({"count": 2, "include_claims": true, "claims_per_member": 2})
+   → Generated 2 members, 2 enrollments, 4 claims
+✓ generate_subjects({"count": 2, "protocol_id": "STUDY-001", "include_visits": true})
+   → Generated 2 subjects, 32 visits
+✓ generate_rx_members({"count": 2, "bin_number": "999999"})
+   → Generated 2 pharmacy members
+✓ list_skills({})
+   → Found 128 skills across 6 products
+✓ describe_skill({"skill_name": "heart-failure", "product": "patientsim"})
+   → Skill: heart-failure
 ```
 
 ---
 
-## 3. Reference Data Status
+## FILES CHANGED THIS SESSION
 
-### DuckDB Database (healthsim-reference.duckdb) - ✅ Complete
-| Schema | Tables | Status |
-|--------|--------|--------|
-| main/ | 24 entity tables | ✅ Present |
-| population/ | 5 CDC/Census tables | ✅ Present |
-| network/ | 5 provider/facility tables | ✅ Present |
+1. `/src/healthsim_agent/tools/generation_tools.py` - Created (560 lines)
+   - generate_patients()
+   - generate_members()
+   - generate_subjects()
+   - generate_rx_members()
+   - check_formulary()
+   - list_skills()
+   - describe_skill()
 
-### Local Reference Files
-| Location | Content | Status |
-|----------|---------|--------|
-| references/ | Clinical domain docs, code systems | 📁 In workspace only |
-| formats/ | Format documentation (C-CDA, X12, NCPDP, SDTM) | 📁 In workspace only |
-| scenarios/*/data/ | Product-specific data files | 📁 In workspace only |
+2. `/src/healthsim_agent/agent.py` - Updated
+   - Added 7 tool definitions to TOOL_DEFINITIONS
+   - Added imports for generation_tools
+   - Added executors to _get_tool_executor()
 
----
-
-## 4. Decision Matrix: What to Port?
-
-### Must Have (Core Functionality)
-| Component | Lines | Rationale |
-|-----------|-------|-----------|
-| dimensional/ | ~1,916 | Analytics output is core feature |
-| db/reference/ (loader.py, populationsim.py) | ~200 | Reference data access |
-
-### Should Have (Full Feature Parity)
-| Component | Lines | Rationale |
-|-----------|-------|-----------|
-| Product core models | ~3,000 | Canonical data structures |
-| Product format transformers | ~15,000 | Output format support |
-
-### Could Defer (Specialized Features)
-| Component | Lines | Rationale |
-|-----------|-------|-----------|
-| db/migrate/ (json_cohorts.py) | ~8,000 | Cohort migration utility |
-| Quality measures | ~500 | MemberSim-specific |
-| MIMIC format | ~500 | Specialized output format |
+3. `/tests/unit/test_generation_tools.py` - Created (306 lines)
+   - 32 comprehensive tests for all generation tools
 
 ---
 
-## 5. Architecture Decision: Product Code Strategy
+## COMPLETION STATUS
 
-### Option A: Port All Product Packages (~46,000 lines)
-**Pros**: Complete feature parity, all formats available
-**Cons**: Large effort, may duplicate Skills-based generation
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | PatientSim Generation | ✅ COMPLETE |
+| 2 | MemberSim Generation | ✅ COMPLETE |
+| 3 | RxMemberSim Generation | ✅ COMPLETE |
+| 4 | TrialSim Generation | ✅ COMPLETE |
+| 5 | Validation Tools | ⏳ Future |
+| 6 | Profile/Journey System | ⏳ Future |
+| 7 | Export Enhancements | ⏳ Future |
 
-### Option B: Port Core Models Only (~3,000 lines)
-**Pros**: Canonical data structures, smaller scope
-**Cons**: No format transformers, limited output options
-
-### Option C: Lazy Loading / On-Demand
-**Pros**: Start small, add as needed
-**Cons**: May need refactoring later
-
-### Recommendation: **Option B + dimensional/**
-1. Port dimensional/ (~1,916 lines) - Analytics output
-2. Port product core models (~3,000 lines) - Canonical structures
-3. Port db/reference/ loaders (~200 lines) - Reference data access
-4. Defer format transformers - Skills can guide Claude to generate formats
-
-**Total New Work**: ~5,116 lines
-**Resulting Coverage**: Core infrastructure + canonical models + analytics output
-
----
-
-## 6. PopulationSim & NetworkSim Status
-
-### PopulationSim
-- **Data**: ✅ Embedded in DuckDB (population schema)
-- **Code**: Uses core generation framework + Skills
-- **Python Package**: None (Skills-only product)
-
-### NetworkSim
-- **Data**: ✅ Embedded in DuckDB (network schema with 8.9M providers)
-- **Code**: Uses networksim_reference.py (already ported)
-- **Python Package**: None (Skills-only product)
-- **Status**: v2 data infrastructure complete, Skills define queries
-
----
-
-## 7. Recommended Action Plan
-
-### Phase 1: Complete Core Gaps (This Session)
-1. [ ] Port dimensional/ package (~1,916 lines)
-   - writers/base.py
-   - writers/duckdb_writer.py
-   - writers/databricks_writer.py
-   - writers/registry.py
-   - transformers/base.py
-   - generators/dim_date.py
-
-2. [ ] Port db/reference/ loaders (~200 lines)
-   - loader.py
-   - populationsim.py
-
-### Phase 2: Add Product Core Models (Next Session)
-3. [ ] Create products/ directory structure
-4. [ ] Port core models from each product:
-   - patientsim/core/models.py
-   - membersim/core/models.py
-   - rxmembersim/core/models.py
-   - trialsim/core/models.py
-
-### Phase 3: Integration Testing
-5. [ ] End-to-end generation tests
-6. [ ] Format output validation
-7. [ ] DuckDB analytics output verification
-
----
-
-## 8. Files Not Needed
-
-| Component | Reason |
-|-----------|--------|
-| mcp/ | Agent uses Agent SDK, not MCP |
-| db/migrate/json_cohorts.py | Cohort migration utility, defer |
-| Product format transformers | Skills guide Claude for format generation |
-| Product MCP servers | Agent SDK replaces MCP |
-
----
-
-*Generated: 2026-01-10*
-*Source: healthsim-workspace, healthsim-agent comparison*
+**Core functionality (Phases 1-4): 100% COMPLETE**
