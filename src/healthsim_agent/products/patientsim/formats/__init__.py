@@ -39,6 +39,21 @@ from healthsim_agent.products.patientsim.formats.ccda import (
     get_vital_loinc,
 )
 
+# MIMIC exports
+from healthsim_agent.products.patientsim.formats.mimic import (
+    AdmissionsSchema,
+    CHART_ITEMIDS,
+    CharteventsSchema,
+    DiagnosesIcdSchema,
+    IDGenerator,
+    LAB_ITEMIDS,
+    LabeventsSchema,
+    MIMICTransformer,
+    PatientsSchema,
+    get_chart_itemid,
+    get_lab_itemid,
+)
+
 __all__ = [
     # Export utilities
     "JSONEncoder",
@@ -73,4 +88,16 @@ __all__ = [
     "create_rxnorm_code",
     "get_code_system",
     "get_vital_loinc",
+    # MIMIC
+    "MIMICTransformer",
+    "IDGenerator",
+    "PatientsSchema",
+    "AdmissionsSchema",
+    "DiagnosesIcdSchema",
+    "LabeventsSchema",
+    "CharteventsSchema",
+    "LAB_ITEMIDS",
+    "CHART_ITEMIDS",
+    "get_lab_itemid",
+    "get_chart_itemid",
 ]

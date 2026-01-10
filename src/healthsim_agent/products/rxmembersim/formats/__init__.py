@@ -1,6 +1,6 @@
 """RxMemberSim format support.
 
-NCPDP Telecommunication Standard, SCRIPT, and ePA for pharmacy operations.
+NCPDP Telecommunication Standard, SCRIPT, ePA, and X12 835 for pharmacy operations.
 """
 
 from healthsim_agent.products.rxmembersim.formats.ncpdp import (
@@ -30,6 +30,16 @@ from healthsim_agent.products.rxmembersim.formats.ncpdp import (
     get_reject_description,
     is_dur_reject,
     is_hard_reject,
+)
+
+# X12 exports
+from healthsim_agent.products.rxmembersim.formats.x12 import (
+    AdjustmentGroup,
+    ClaimStatus,
+    EDI835PharmacyGenerator,
+    PharmacyLinePayment,
+    PharmacyRemittance,
+    generate_pharmacy_835,
 )
 
 __all__ = [
@@ -63,4 +73,11 @@ __all__ = [
     "PAInitiationResponse",
     "PARequest",
     "PAResponse",
+    # X12 835
+    "EDI835PharmacyGenerator",
+    "PharmacyRemittance",
+    "PharmacyLinePayment",
+    "ClaimStatus",
+    "AdjustmentGroup",
+    "generate_pharmacy_835",
 ]
