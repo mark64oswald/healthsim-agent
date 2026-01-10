@@ -60,6 +60,16 @@ from .reference_tools import (
     search_providers,
 )
 
+from .format_tools import (
+    transform_to_fhir,
+    transform_to_ccda,
+    transform_to_hl7v2,
+    transform_to_x12,
+    transform_to_ncpdp,
+    transform_to_mimic,
+    list_output_formats,
+)
+
 
 __all__ = [
     # Base
@@ -91,4 +101,12 @@ __all__ = [
     # Reference tools
     "query_reference",
     "search_providers",
+    # Format tools
+    "transform_to_fhir",
+    "transform_to_ccda",
+    "transform_to_hl7v2",
+    "transform_to_x12",
+    "transform_to_ncpdp",
+    "transform_to_mimic",
+    "list_output_formats",
 ]
