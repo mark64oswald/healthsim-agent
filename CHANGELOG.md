@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added - Phase 6: CLI & Integration (January 10, 2026)
+- Enhanced CLI with subcommands (`main.py`)
+  - `healthsim chat` - Interactive chat session (default)
+  - `healthsim status` - Database and configuration status
+  - `healthsim query` - Direct SQL execution with format options
+  - `healthsim cohorts` - List all saved cohorts
+  - `healthsim export` - Export cohorts to JSON, FHIR, CSV
+- `src/healthsim_agent/__main__.py` - Module entry point
+  - Enables `python -m healthsim_agent`
+- `src/healthsim_agent/tools/format_tools.py` - Format transformations (845 lines)
+  - transform_to_fhir: Convert to FHIR R4 bundles
+  - transform_to_ccda: Convert to C-CDA XML documents
+  - transform_to_hl7v2: Convert to HL7v2 messages
+  - transform_to_x12: Convert to X12 EDI (270/271/834/835/837)
+  - transform_to_ncpdp: Convert to NCPDP SCRIPT XML
+  - transform_to_mimic: Convert to MIMIC-III format
+  - list_output_formats: List available formats
+  - Helper functions for model conversion
+- Integration tests: 7 new tests
+  - test_format_tools.py: Database connectivity, cohort operations, format listing
+- Unit tests: 582 passing (format tools with mocking)
+- Total tests: 589 passing
+- Updated README with comprehensive CLI documentation
+
 ### Added - Phase 5: UI Enhancements (January 10, 2026)
 - `src/healthsim_agent/ui/theme.py` - GitHub Dark theme
   - COLORS: Full palette from UX specification

@@ -11,7 +11,7 @@ These tools transform generated healthcare data into standard interchange format
 All transformations work on cohort data loaded from the database.
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 import json
 
@@ -41,9 +41,9 @@ def transform_to_fhir(
         ToolResult with FHIR R4 Bundle JSON
     """
     try:
-        from healthsim_agent.products.patientsim.formats.fhir import (
-            FHIRTransformer,
-            FHIRConfig,
+        from healthsim_agent.products.patientsim.formats.fhir import FHIRTransformer
+        from healthsim_agent.products.patientsim.core.models import (
+            Patient, Encounter, Diagnosis, LabResult, VitalSign
         )
         
         # Load cohort data
@@ -51,36 +51,56 @@ def transform_to_fhir(
         if cohort_data.get("error"):
             return err(cohort_data["error"])
         
-        # Configure transformer
-        config = FHIRConfig(
-            organization_name="HealthSim Generated",
-            organization_id=f"urn:uuid:healthsim:{cohort_id}",
-        )
-        transformer = FHIRTransformer(config)
+        transformer = FHIRTransformer()
         
-        # Transform patient data
-        patients = cohort_data.get("patients", [])
-        if not patients:
+        # Convert dict data to model objects
+        patients_raw = cohort_data.get("patients", [])
+        if not patients_raw:
             return err("No patients found in cohort")
         
-        # Build FHIR bundle
-        bundle = transformer.transform_bundle(
-            patients=patients,
-            diagnoses=cohort_data.get("diagnoses", []),
-            medications=cohort_data.get("medications", []),
-            observations=cohort_data.get("observations", []),
-            encounters=cohort_data.get("encounters", []),
-            bundle_type=bundle_type,
-        )
+        # Build bundle entries
+        entries = []
+        
+        for p in patients_raw:
+            patient = _dict_to_patient(p)
+            resource = transformer.transform_patient(patient)
+            entries.append({
+                "fullUrl": f"urn:uuid:{resource.id}",
+                "resource": resource.model_dump(by_alias=True, exclude_none=True),
+            })
+        
+        for e in cohort_data.get("encounters", []):
+            encounter = _dict_to_encounter(e)
+            resource = transformer.transform_encounter(encounter)
+            entries.append({
+                "fullUrl": f"urn:uuid:{resource.id}",
+                "resource": resource.model_dump(by_alias=True, exclude_none=True),
+            })
+        
+        for d in cohort_data.get("diagnoses", []):
+            diagnosis = _dict_to_diagnosis(d)
+            resource = transformer.transform_condition(diagnosis)
+            entries.append({
+                "fullUrl": f"urn:uuid:{resource.id}",
+                "resource": resource.model_dump(by_alias=True, exclude_none=True),
+            })
+        
+        bundle = {
+            "resourceType": "Bundle",
+            "id": cohort_id,
+            "type": bundle_type,
+            "timestamp": datetime.now().isoformat(),
+            "entry": entries,
+        }
         
         return ok(
             data=bundle,
-            message=f"Generated FHIR R4 {bundle_type} bundle with {len(patients)} patients",
+            message=f"Generated FHIR R4 {bundle_type} bundle with {len(patients_raw)} patients",
             format="fhir_r4",
         )
         
-    except ImportError:
-        return err("FHIR transformer not available - ensure patientsim is installed")
+    except ImportError as e:
+        return err(f"FHIR transformer not available: {e}")
     except Exception as e:
         return err(f"FHIR transformation failed: {e}")
 
@@ -114,6 +134,9 @@ def transform_to_ccda(
             CCDAConfig,
             DocumentType,
         )
+        from healthsim_agent.products.patientsim.core.models import (
+            Patient, Diagnosis, VitalSign, LabResult
+        )
         
         # Map document type string to enum
         doc_type_map = {
@@ -137,22 +160,28 @@ def transform_to_ccda(
         )
         transformer = CCDATransformer(config)
         
-        patients = cohort_data.get("patients", [])
-        if not patients:
+        patients_raw = cohort_data.get("patients", [])
+        if not patients_raw:
             return err("No patients found in cohort")
         
         # Generate documents
         documents = []
-        for patient in patients:
+        for p in patients_raw:
+            patient = _dict_to_patient(p)
+            diagnoses = [_dict_to_diagnosis(d) for d in _filter_for_patient(cohort_data.get("diagnoses", []), p)]
+            vitals = [_dict_to_vitalsign(v) for v in _filter_for_patient(cohort_data.get("vitals", []), p)]
+            labs = [_dict_to_lab(l) for l in _filter_for_patient(cohort_data.get("labs", []), p)]
+            
             xml = transformer.transform(
                 patient=patient,
-                diagnoses=_filter_for_patient(cohort_data.get("diagnoses", []), patient),
-                medications=_filter_for_patient(cohort_data.get("medications", []), patient),
-                vitals=_filter_for_patient(cohort_data.get("vitals", []), patient),
-                labs=_filter_for_patient(cohort_data.get("labs", []), patient),
+                diagnoses=diagnoses,
+                medications=[],  # TODO: Add medications
+                vitals=vitals,
+                labs=labs,
             )
+            mrn = p.get("mrn", "unknown")
             documents.append({
-                "patient_mrn": patient.get("mrn") or patient.mrn,
+                "patient_mrn": mrn,
                 "document_type": document_type,
                 "xml": xml,
             })
@@ -163,8 +192,8 @@ def transform_to_ccda(
             format="ccda",
         )
         
-    except ImportError:
-        return err("C-CDA transformer not available - ensure patientsim is installed")
+    except ImportError as e:
+        return err(f"C-CDA transformer not available: {e}")
     except Exception as e:
         return err(f"C-CDA transformation failed: {e}")
 
@@ -191,7 +220,6 @@ def transform_to_hl7v2(
     try:
         from healthsim_agent.products.patientsim.formats.hl7v2 import (
             HL7v2Generator,
-            HL7v2Config,
             MessageType,
         )
         
@@ -211,15 +239,17 @@ def transform_to_hl7v2(
         
         generator = HL7v2Generator()
         
-        patients = cohort_data.get("patients", [])
-        if not patients:
+        patients_raw = cohort_data.get("patients", [])
+        if not patients_raw:
             return err("No patients found in cohort")
         
         messages = []
-        for patient in patients:
+        for p in patients_raw:
+            patient = _dict_to_patient(p)
             msg = generator.generate(patient, msg_type)
+            mrn = p.get("mrn", "unknown")
             messages.append({
-                "patient_mrn": patient.get("mrn") or patient.mrn,
+                "patient_mrn": mrn,
                 "message_type": message_type,
                 "message": msg,
             })
@@ -230,8 +260,8 @@ def transform_to_hl7v2(
             format="hl7v2",
         )
         
-    except ImportError:
-        return err("HL7v2 generator not available - ensure patientsim is installed")
+    except ImportError as e:
+        return err(f"HL7v2 generator not available: {e}")
     except Exception as e:
         return err(f"HL7v2 transformation failed: {e}")
 
@@ -283,7 +313,8 @@ def transform_to_x12(
             members = cohort_data.get("members", [])
             if not members:
                 return err("No members found for eligibility inquiry")
-            edi = generator.generate(members[0])
+            member = _dict_to_member(members[0])
+            edi = generator.generate(member)
             msg = "eligibility inquiry"
             
         elif transaction_type == "271":
@@ -292,7 +323,9 @@ def transform_to_x12(
             plans = cohort_data.get("plans", [])
             if not members:
                 return err("No members found for eligibility response")
-            edi = generator.generate(members[0], plans[0] if plans else None)
+            member = _dict_to_member(members[0])
+            plan = _dict_to_plan(plans[0]) if plans else None
+            edi = generator.generate(member, plan)
             msg = "eligibility response"
             
         elif transaction_type in ("835", "REMITTANCE"):
@@ -324,7 +357,7 @@ def transform_to_x12(
             members = cohort_data.get("members", [])
             if not members:
                 return err("No members found for enrollment")
-            edi = generator.generate(members)
+            edi = generator.generate([_dict_to_member(m) for m in members])
             msg = "enrollment"
             
         else:
@@ -336,8 +369,8 @@ def transform_to_x12(
             format=f"x12_{transaction_type.lower()}",
         )
         
-    except ImportError:
-        return err("X12 generators not available - ensure membersim is installed")
+    except ImportError as e:
+        return err(f"X12 generators not available: {e}")
     except Exception as e:
         return err(f"X12 transformation failed: {e}")
 
@@ -364,6 +397,7 @@ def transform_to_ncpdp(
     try:
         from healthsim_agent.products.rxmembersim.formats.ncpdp import (
             NCPDPScriptGenerator,
+            NewRxMessage,
         )
         
         # Load cohort data
@@ -380,8 +414,6 @@ def transform_to_ncpdp(
         messages = []
         for rx in prescriptions:
             if message_type.upper() == "NEW_RX":
-                # Build NewRxMessage from prescription data
-                from healthsim_agent.products.rxmembersim.formats.ncpdp import NewRxMessage
                 msg_obj = _build_new_rx_message(rx)
                 xml = generator.generate_new_rx(msg_obj)
             else:
@@ -400,8 +432,8 @@ def transform_to_ncpdp(
             format="ncpdp_script",
         )
         
-    except ImportError:
-        return err("NCPDP generators not available - ensure rxmembersim is installed")
+    except ImportError as e:
+        return err(f"NCPDP generators not available: {e}")
     except Exception as e:
         return err(f"NCPDP transformation failed: {e}")
 
@@ -424,9 +456,7 @@ def transform_to_mimic(
         ToolResult with MIMIC-III formatted data
     """
     try:
-        from healthsim_agent.products.patientsim.formats.mimic import (
-            MIMICTransformer,
-        )
+        from healthsim_agent.products.patientsim.formats.mimic import MIMICTransformer
         
         # Load cohort data
         cohort_data = _load_cohort_data(cohort_id)
@@ -435,25 +465,24 @@ def transform_to_mimic(
         
         transformer = MIMICTransformer()
         
-        patients = cohort_data.get("patients", [])
-        if not patients:
+        patients_raw = cohort_data.get("patients", [])
+        if not patients_raw:
             return err("No patients found in cohort")
+        
+        # Convert to model objects
+        patients = [_dict_to_patient(p) for p in patients_raw]
+        encounters = [_dict_to_encounter(e) for e in cohort_data.get("encounters", [])]
+        diagnoses = [_dict_to_diagnosis(d) for d in cohort_data.get("diagnoses", [])]
+        labs = [_dict_to_lab(l) for l in cohort_data.get("labs", [])]
+        vitals = [_dict_to_vitalsign(v) for v in cohort_data.get("vitals", [])]
         
         # Transform to MIMIC tables
         mimic_data = {
             "PATIENTS": transformer.transform_patients(patients),
-            "ADMISSIONS": transformer.transform_admissions(
-                cohort_data.get("encounters", [])
-            ),
-            "DIAGNOSES_ICD": transformer.transform_diagnoses_icd(
-                cohort_data.get("diagnoses", [])
-            ),
-            "LABEVENTS": transformer.transform_labevents(
-                cohort_data.get("labs", [])
-            ),
-            "CHARTEVENTS": transformer.transform_chartevents(
-                cohort_data.get("vitals", [])
-            ),
+            "ADMISSIONS": transformer.transform_admissions(encounters),
+            "DIAGNOSES_ICD": transformer.transform_diagnoses_icd(diagnoses),
+            "LABEVENTS": transformer.transform_labevents(labs),
+            "CHARTEVENTS": transformer.transform_chartevents(vitals),
         }
         
         # Convert DataFrames based on output format
@@ -472,8 +501,8 @@ def transform_to_mimic(
             format="mimic_iii",
         )
         
-    except ImportError:
-        return err("MIMIC transformer not available - ensure patientsim is installed")
+    except ImportError as e:
+        return err(f"MIMIC transformer not available: {e}")
     except Exception as e:
         return err(f"MIMIC transformation failed: {e}")
 
@@ -610,10 +639,177 @@ def _filter_for_patient(entities: List[Any], patient: Any) -> List[Any]:
     return filtered
 
 
-def _build_new_rx_message(rx: Dict[str, Any]) -> Any:
+# =============================================================================
+# Dict to Model Converters
+# =============================================================================
+
+def _dict_to_patient(data: Dict[str, Any]):
+    """Convert dict to Patient model."""
+    from healthsim_agent.products.patientsim.core.models import Patient, Name, Gender
+    
+    name = None
+    if data.get("given_name") or data.get("family_name"):
+        name = Name(
+            given_name=data.get("given_name", ""),
+            family_name=data.get("family_name", ""),
+        )
+    
+    gender = Gender.UNKNOWN
+    gender_val = data.get("gender", "U")
+    if gender_val in ("M", "male"):
+        gender = Gender.MALE
+    elif gender_val in ("F", "female"):
+        gender = Gender.FEMALE
+    elif gender_val in ("O", "other"):
+        gender = Gender.OTHER
+    
+    birth_date = None
+    if data.get("birth_date"):
+        bd = data["birth_date"]
+        if isinstance(bd, str):
+            birth_date = date.fromisoformat(bd.split("T")[0])
+        elif isinstance(bd, date):
+            birth_date = bd
+    
+    return Patient(
+        mrn=data.get("mrn", "UNKNOWN"),
+        name=name,
+        gender=gender,
+        birth_date=birth_date,
+    )
+
+
+def _dict_to_encounter(data: Dict[str, Any]):
+    """Convert dict to Encounter model."""
+    from healthsim_agent.products.patientsim.core.models import (
+        Encounter, EncounterClass, EncounterStatus
+    )
+    
+    # Parse dates
+    admission_time = None
+    if data.get("admission_date"):
+        ad = data["admission_date"]
+        if isinstance(ad, str):
+            try:
+                admission_time = datetime.fromisoformat(ad)
+            except:
+                admission_time = datetime.fromisoformat(ad + "T00:00:00")
+        elif isinstance(ad, datetime):
+            admission_time = ad
+    
+    discharge_time = None
+    if data.get("discharge_date"):
+        dd = data["discharge_date"]
+        if isinstance(dd, str):
+            try:
+                discharge_time = datetime.fromisoformat(dd)
+            except:
+                discharge_time = datetime.fromisoformat(dd + "T23:59:59")
+        elif isinstance(dd, datetime):
+            discharge_time = dd
+    
+    class_code = EncounterClass.AMBULATORY
+    class_val = data.get("encounter_type", "outpatient").lower()
+    if class_val == "inpatient":
+        class_code = EncounterClass.INPATIENT
+    elif class_val == "emergency":
+        class_code = EncounterClass.EMERGENCY
+    
+    return Encounter(
+        encounter_id=data.get("encounter_id", "ENC-001"),
+        patient_mrn=data.get("mrn", "UNKNOWN"),
+        class_code=class_code,
+        status=EncounterStatus.FINISHED,
+        admission_time=admission_time,
+        discharge_time=discharge_time,
+    )
+
+
+def _dict_to_diagnosis(data: Dict[str, Any]):
+    """Convert dict to Diagnosis model."""
+    from healthsim_agent.products.patientsim.core.models import Diagnosis
+    
+    return Diagnosis(
+        patient_mrn=data.get("mrn", "UNKNOWN"),
+        code=data.get("code", ""),
+        description=data.get("description", ""),
+        is_active=data.get("is_active", True),
+    )
+
+
+def _dict_to_vitalsign(data: Dict[str, Any]):
+    """Convert dict to VitalSign model."""
+    from healthsim_agent.products.patientsim.core.models import VitalSign
+    
+    obs_time = datetime.now()
+    if data.get("observation_time"):
+        ot = data["observation_time"]
+        if isinstance(ot, str):
+            obs_time = datetime.fromisoformat(ot)
+        elif isinstance(ot, datetime):
+            obs_time = ot
+    
+    return VitalSign(
+        patient_mrn=data.get("mrn", "UNKNOWN"),
+        observation_time=obs_time,
+        systolic_bp=data.get("systolic_bp"),
+        diastolic_bp=data.get("diastolic_bp"),
+        heart_rate=data.get("heart_rate"),
+        respiratory_rate=data.get("respiratory_rate"),
+        temperature=data.get("temperature"),
+        spo2=data.get("spo2"),
+    )
+
+
+def _dict_to_lab(data: Dict[str, Any]):
+    """Convert dict to LabResult model."""
+    from healthsim_agent.products.patientsim.core.models import LabResult
+    
+    collected_time = datetime.now()
+    if data.get("collected_time"):
+        ct = data["collected_time"]
+        if isinstance(ct, str):
+            collected_time = datetime.fromisoformat(ct)
+        elif isinstance(ct, datetime):
+            collected_time = ct
+    
+    return LabResult(
+        patient_mrn=data.get("mrn", "UNKNOWN"),
+        test_name=data.get("test_name", ""),
+        value=data.get("value"),
+        units=data.get("unit", ""),
+        collected_time=collected_time,
+    )
+
+
+def _dict_to_member(data: Dict[str, Any]):
+    """Convert dict to Member model."""
+    from healthsim_agent.products.membersim.core.models import Member
+    
+    return Member(
+        member_id=data.get("member_id", "UNKNOWN"),
+        subscriber_id=data.get("subscriber_id"),
+        first_name=data.get("given_name", ""),
+        last_name=data.get("family_name", ""),
+        date_of_birth=data.get("birth_date"),
+        gender=data.get("gender", "U"),
+    )
+
+
+def _dict_to_plan(data: Dict[str, Any]):
+    """Convert dict to Plan model."""
+    from healthsim_agent.products.membersim.core.models import Plan
+    
+    return Plan(
+        plan_id=data.get("plan_id", "UNKNOWN"),
+        plan_name=data.get("plan_name", ""),
+        plan_type=data.get("plan_type", "PPO"),
+    )
+
+
+def _build_new_rx_message(rx: Dict[str, Any]):
     """Build NewRxMessage from prescription data."""
     from healthsim_agent.products.rxmembersim.formats.ncpdp import NewRxMessage
-    from datetime import date
     
     return NewRxMessage(
         message_id=rx.get("id", "MSG001"),
@@ -628,7 +824,7 @@ def _build_new_rx_message(rx: Dict[str, Any]) -> Any:
         prescriber_phone=rx.get("prescriber_phone", ""),
         patient_last_name=rx.get("patient_last_name", "Unknown"),
         patient_first_name=rx.get("patient_first_name", ""),
-        patient_dob=rx.get("patient_dob", date.today()),
+        patient_dob=rx.get("patient_dob", date.today().isoformat()),
         patient_gender=rx.get("patient_gender", "U"),
         patient_address=rx.get("patient_address", ""),
         patient_city=rx.get("patient_city", ""),
