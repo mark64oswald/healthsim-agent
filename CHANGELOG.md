@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `healthsim export` - Export cohorts to JSON, FHIR, CSV
 - `src/healthsim_agent/__main__.py` - Module entry point
   - Enables `python -m healthsim_agent`
-- `src/healthsim_agent/tools/format_tools.py` - Format transformations (845 lines)
+- `src/healthsim_agent/tools/format_tools.py` - Format transformations (810 lines)
   - transform_to_fhir: Convert to FHIR R4 bundles
   - transform_to_ccda: Convert to C-CDA XML documents
   - transform_to_hl7v2: Convert to HL7v2 messages
@@ -24,10 +24,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - transform_to_mimic: Convert to MIMIC-III format
   - list_output_formats: List available formats
   - Helper functions for model conversion
+- Full agent integration (`agent.py` rewrite)
+  - 17 tools registered with Claude API tool calling
+  - Tool execution loop with multi-turn support
+  - Streaming response support with callbacks
+  - Skills context loading for system prompt
+  - Session save/load for persistence
+- Session state enhancements (`state/session.py`)
+  - Support for complex content blocks (tool use)
+  - Proper serialization for API messages
+  - Text extraction helpers
 - Integration tests: 7 new tests
   - test_format_tools.py: Database connectivity, cohort operations, format listing
-- Unit tests: 582 passing (format tools with mocking)
-- Total tests: 589 passing
+- Total tests: 591 passing
 - Updated README with comprehensive CLI documentation
 
 ### Added - Phase 5: UI Enhancements (January 10, 2026)

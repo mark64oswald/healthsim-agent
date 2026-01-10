@@ -319,6 +319,7 @@ class TerminalUI:
         Run the interactive session loop.
         
         Handles user input, commands, and agent responses.
+        Uses streaming for real-time response display.
         """
         while True:
             try:
@@ -336,14 +337,47 @@ class TerminalUI:
                         break
                     continue
                 
-                # Process message through agent
-                live = self.show_thinking()
-                try:
-                    response = agent.process_message(user_input)
-                finally:
-                    self.stop_thinking()
+                # Process message through agent with streaming
+                self.console.print()
                 
-                self.show_response(response)
+                # Collect response text
+                response_text = []
+                
+                def on_text(chunk: str) -> None:
+                    """Handle streamed text chunks."""
+                    self.console.print(chunk, end="")
+                    response_text.append(chunk)
+                
+                def on_tool_start(name: str, args: dict) -> None:
+                    """Show tool execution indicator."""
+                    self.show_tool_start(name)
+                
+                def on_tool_end(name: str, result: dict) -> None:
+                    """Show tool completion."""
+                    if result.get("error"):
+                        self.show_result_error(f"{name}: {result['error']}")
+                    else:
+                        self.show_result_success(f"{name} completed")
+                
+                try:
+                    # Try streaming first
+                    response = agent.process_message_streaming(
+                        user_input,
+                        on_text=on_text,
+                        on_tool_start=on_tool_start,
+                        on_tool_end=on_tool_end,
+                    )
+                except AttributeError:
+                    # Fall back to non-streaming
+                    live = self.show_thinking()
+                    try:
+                        response = agent.process_message(user_input)
+                    finally:
+                        self.stop_thinking()
+                    self.show_response(response)
+                else:
+                    # Finish streaming output
+                    self.console.print()
                 
                 # Show status bar periodically
                 if self._message_count % 5 == 0:
@@ -360,8 +394,8 @@ class TerminalUI:
         Returns:
             True if should exit, False otherwise
         """
-        parts = command_str[1:].lower().split()
-        command = parts[0] if parts else ""
+        parts = command_str[1:].split()
+        command = parts[0].lower() if parts else ""
         args = parts[1:] if len(parts) > 1 else []
         
         if command in ("quit", "exit", "q"):
@@ -371,12 +405,28 @@ class TerminalUI:
         elif command == "status":
             self.show_status(agent)
         elif command == "clear":
-            self.clear_screen()
-            self.console.print(f"[{COLORS['muted']}]Screen cleared.[/]")
+            agent.clear_session()
+            self.console.print(f"[{COLORS['muted']}]Session cleared.[/]")
         elif command == "sql" and args:
             # Direct SQL execution
             sql = " ".join(args)
             self._execute_sql(sql, agent)
+        elif command == "save" and args:
+            # Save session
+            path = args[0]
+            agent.save_session(path)
+            self.console.print(f"[{COLORS['success']}]Session saved to {path}[/]")
+        elif command == "load" and args:
+            # Load session
+            path = args[0]
+            if agent.load_session(path):
+                self.console.print(f"[{COLORS['success']}]Session loaded from {path}[/]")
+            else:
+                self.console.print(f"[{COLORS['error']}]Failed to load session from {path}[/]")
+        elif command == "new":
+            # Start new session
+            agent.clear_session()
+            self.console.print(f"[{COLORS['muted']}]Started new session.[/]")
         else:
             self.console.print(f"[{COLORS['warning']}]Unknown command: {command}[/]")
             self.console.print(f"[{COLORS['muted']}]Type /help for available commands[/]")
@@ -386,14 +436,31 @@ class TerminalUI:
     def _execute_sql(self, sql: str, agent: "HealthSimAgent") -> None:
         """Execute direct SQL command."""
         try:
-            from .formatters import format_sql
+            from rich.table import Table
+            from healthsim_agent.tools.query_tools import query
             
-            # Show the SQL being executed
-            self.console.print(format_sql(sql, "Executing SQL"))
+            # Execute through query tool
+            result = query(sql=sql, limit=100)
             
-            # Execute through agent's query tool
-            # This would integrate with the actual agent
-            self.console.print(f"[{COLORS['muted']}]SQL execution not yet integrated[/]")
+            if result.success and result.data:
+                rows = result.data.get("rows", [])
+                columns = result.data.get("columns", [])
+                
+                if rows and columns:
+                    table = Table(show_header=True, header_style="bold cyan")
+                    for col in columns:
+                        table.add_column(col)
+                    
+                    for row in rows[:50]:  # Limit display
+                        table.add_row(*[str(v) if v is not None else "" for v in row])
+                    
+                    self.console.print(table)
+                    self.console.print(f"[{COLORS['muted']}]{len(rows)} rows returned[/]")
+                else:
+                    self.console.print(f"[{COLORS['muted']}]Query executed, no rows returned[/]")
+            else:
+                self.show_error(result.error or "Query failed")
+                
         except Exception as e:
             self.show_error(f"SQL execution failed: {e}")
 

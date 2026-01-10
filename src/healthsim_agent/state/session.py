@@ -13,9 +13,23 @@ from uuid import uuid4
 class Message:
     """A single message in the conversation."""
     role: str  # "user" or "assistant"
-    content: str
+    content: str | list[Any]  # Can be string or list of content blocks
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
+    
+    @property
+    def text_content(self) -> str:
+        """Extract text content regardless of format."""
+        if isinstance(self.content, str):
+            return self.content
+        # Handle list of content blocks
+        texts = []
+        for block in self.content:
+            if hasattr(block, 'text'):
+                texts.append(block.text)
+            elif isinstance(block, dict) and 'text' in block:
+                texts.append(block['text'])
+        return "\n".join(texts)
 
 
 @dataclass
@@ -65,12 +79,35 @@ class SessionState:
         self.generated_items.append(item)
         return item
     
-    def get_messages_for_api(self) -> list[dict[str, str]]:
+    def get_messages_for_api(self) -> list[dict[str, Any]]:
         """Get messages formatted for the Anthropic API."""
-        return [
-            {"role": msg.role, "content": msg.content}
-            for msg in self.messages
-        ]
+        result = []
+        for msg in self.messages:
+            if isinstance(msg.content, str):
+                result.append({"role": msg.role, "content": msg.content})
+            else:
+                # Content blocks - serialize properly
+                content = []
+                for block in msg.content:
+                    if hasattr(block, 'model_dump'):
+                        # Pydantic model
+                        content.append(block.model_dump())
+                    elif hasattr(block, 'to_dict'):
+                        content.append(block.to_dict())
+                    elif isinstance(block, dict):
+                        content.append(block)
+                    elif hasattr(block, 'text'):
+                        content.append({"type": "text", "text": block.text})
+                    elif hasattr(block, 'name'):
+                        # Tool use block
+                        content.append({
+                            "type": "tool_use",
+                            "id": getattr(block, 'id', ''),
+                            "name": block.name,
+                            "input": getattr(block, 'input', {}),
+                        })
+                result.append({"role": msg.role, "content": content})
+        return result
     
     def get_recent_messages(self, n: int = 10) -> list[Message]:
         """Get the n most recent messages."""
@@ -109,13 +146,37 @@ class SessionState:
     
     def to_dict(self) -> dict[str, Any]:
         """Serialize session state to dictionary."""
+        def serialize_content(content):
+            """Serialize message content."""
+            if isinstance(content, str):
+                return content
+            # List of content blocks
+            result = []
+            for block in content:
+                if hasattr(block, 'model_dump'):
+                    result.append(block.model_dump())
+                elif hasattr(block, 'to_dict'):
+                    result.append(block.to_dict())
+                elif isinstance(block, dict):
+                    result.append(block)
+                elif hasattr(block, 'text'):
+                    result.append({"type": "text", "text": block.text})
+                elif hasattr(block, 'name'):
+                    result.append({
+                        "type": "tool_use",
+                        "id": getattr(block, 'id', ''),
+                        "name": block.name,
+                        "input": getattr(block, 'input', {}),
+                    })
+            return result
+        
         return {
             "session_id": self.session_id,
             "created_at": self.created_at.isoformat(),
             "messages": [
                 {
                     "role": m.role,
-                    "content": m.content,
+                    "content": serialize_content(m.content),
                     "timestamp": m.timestamp.isoformat(),
                     "metadata": m.metadata,
                 }

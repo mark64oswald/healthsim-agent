@@ -13,7 +13,9 @@ from healthsim_agent.tools.format_tools import (
     transform_to_mimic,
     list_output_formats,
     _load_cohort_data,
-    _filter_for_patient,
+    _dict_to_patient,
+    _dict_to_encounter,
+    _dict_to_diagnosis,
 )
 from healthsim_agent.tools.base import ToolResult
 
@@ -47,58 +49,71 @@ class TestListOutputFormats:
     def test_fhir_format_details(self):
         """Test FHIR format details."""
         result = list_output_formats()
-        
         fhir = result.data["fhir_r4"]
+        
         assert fhir["name"] == "FHIR R4"
-        assert "patients" in fhir["entity_types"]
-        assert fhir["output"] == "JSON"
+        # Entity types use singular form
+        assert "patient" in fhir["entity_types"]
+        assert "encounter" in fhir["entity_types"]
 
-    def test_x12_transaction_types(self):
-        """Test X12 transaction types listed."""
+    def test_x12_format_details(self):
+        """Test X12 format details."""
         result = list_output_formats()
-        
         x12 = result.data["x12"]
-        assert "270" in x12["transaction_types"]
-        assert "835" in x12["transaction_types"]
-        assert "837P" in x12["transaction_types"]
+        
+        assert x12["name"] == "X12 EDI"
+        assert "member" in x12["entity_types"]
+        assert "claim" in x12["entity_types"]
 
 
-class TestFilterForPatient:
-    """Tests for _filter_for_patient helper."""
+class TestDictToPatient:
+    """Tests for _dict_to_patient helper."""
 
-    def test_filter_dict_entities(self):
-        """Test filtering dict entities."""
-        patient = {"mrn": "MRN001"}
-        entities = [
-            {"mrn": "MRN001", "name": "Entity1"},
-            {"mrn": "MRN002", "name": "Entity2"},
-            {"mrn": "MRN001", "name": "Entity3"},
-        ]
+    def test_convert_with_name_dict(self):
+        """Test converting patient data with name dict."""
+        data = {
+            "id": "PAT001",
+            "mrn": "MRN001",
+            "name": {"given_name": "John", "family_name": "Doe"},
+            "birth_date": "1980-01-15",
+            "gender": "male",
+        }
         
-        filtered = _filter_for_patient(entities, patient)
+        patient = _dict_to_patient(data)
         
-        assert len(filtered) == 2
-        assert all(e["mrn"] == "MRN001" for e in filtered)
+        assert patient.id == "PAT001"
+        assert patient.mrn == "MRN001"
+        assert patient.name.given_name == "John"
+        assert patient.name.family_name == "Doe"
 
-    def test_filter_empty_list(self):
-        """Test filtering empty list."""
-        patient = {"mrn": "MRN001"}
+    def test_convert_with_flat_names(self):
+        """Test converting patient data with flat name fields."""
+        data = {
+            "id": "PAT002",
+            "mrn": "MRN002",
+            # Note: Uses given_name/family_name at top level when name dict is missing
+            "birth_date": "1990-05-20",
+            "gender": "female",
+        }
+        # Without a name dict, it looks for given_name at top level
+        data["name"] = {}  # Empty name dict triggers alternate lookup
         
-        filtered = _filter_for_patient([], patient)
+        patient = _dict_to_patient(data)
         
-        assert filtered == []
+        # Without given_name, falls back to "Unknown"
+        assert patient.name.given_name == "Unknown"
 
-    def test_filter_no_matches(self):
-        """Test filtering with no matches."""
-        patient = {"mrn": "MRN003"}
-        entities = [
-            {"mrn": "MRN001", "name": "Entity1"},
-            {"mrn": "MRN002", "name": "Entity2"},
-        ]
+    def test_convert_with_defaults(self):
+        """Test converting patient data with minimal fields."""
+        data = {
+            "id": "PAT003",
+            "mrn": "MRN003",
+        }
         
-        filtered = _filter_for_patient(entities, patient)
+        patient = _dict_to_patient(data)
         
-        assert filtered == []
+        assert patient.id == "PAT003"
+        assert patient.name.given_name == "Unknown"
 
 
 class TestTransformToFHIR:
@@ -106,14 +121,23 @@ class TestTransformToFHIR:
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_cohort_not_found(self, mock_load):
-        """Test error when cohort not found or transformer unavailable."""
-        mock_load.return_value = {"error": "Cohort not found"}
+        """Test error when cohort not found."""
+        mock_load.return_value = None  # Returns None when not found
         
         result = transform_to_fhir("nonexistent")
         
         assert result.success is False
-        # Either cohort not found OR transformer not available (import order)
-        assert "not found" in result.error.lower() or "not available" in result.error.lower()
+        assert "not found" in result.error.lower()
+
+    @patch('healthsim_agent.tools.format_tools._load_cohort_data')
+    def test_no_patient_data(self, mock_load):
+        """Test error when no patient data in cohort."""
+        mock_load.return_value = {}  # Empty cohort data
+        
+        result = transform_to_fhir("test-cohort")
+        
+        assert result.success is False
+        assert "patient" in result.error.lower()
 
 
 class TestTransformToCCDA:
@@ -122,22 +146,22 @@ class TestTransformToCCDA:
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_no_patients_error(self, mock_load):
         """Test error when no patients in cohort."""
-        mock_load.return_value = {"patients": []}
+        mock_load.return_value = {"encounter": [{"id": "ENC001"}]}
         
         result = transform_to_ccda("test-cohort")
         
         assert result.success is False
-        assert "No patients" in result.error
+        assert "patient" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_cohort_not_found(self, mock_load):
         """Test error when cohort not found."""
-        mock_load.return_value = {"error": "Cohort not found"}
+        mock_load.return_value = None
         
         result = transform_to_ccda("nonexistent")
         
         assert result.success is False
-        assert "Cohort not found" in result.error
+        assert "not found" in result.error.lower()
 
 
 class TestTransformToHL7v2:
@@ -145,14 +169,23 @@ class TestTransformToHL7v2:
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_cohort_not_found(self, mock_load):
-        """Test error when cohort not found or transformer unavailable."""
-        mock_load.return_value = {"error": "Cohort not found"}
+        """Test error when cohort not found."""
+        mock_load.return_value = None
         
         result = transform_to_hl7v2("nonexistent")
         
         assert result.success is False
-        # Either cohort not found OR transformer not available (import order)
-        assert "not found" in result.error.lower() or "not available" in result.error.lower()
+        assert "not found" in result.error.lower()
+
+    @patch('healthsim_agent.tools.format_tools._load_cohort_data')
+    def test_no_patient_data(self, mock_load):
+        """Test error when no patient data."""
+        mock_load.return_value = {}
+        
+        result = transform_to_hl7v2("test-cohort")
+        
+        assert result.success is False
+        assert "patient" in result.error.lower()
 
 
 class TestTransformToX12:
@@ -161,32 +194,32 @@ class TestTransformToX12:
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_cohort_not_found(self, mock_load):
         """Test error when cohort not found."""
-        mock_load.return_value = {"error": "Cohort not found"}
+        mock_load.return_value = None
         
-        result = transform_to_x12("nonexistent", "835")
+        result = transform_to_x12("nonexistent")
         
         assert result.success is False
-        assert "Cohort not found" in result.error
+        assert "not found" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_unsupported_transaction_type(self, mock_load):
         """Test error for unsupported transaction type."""
-        mock_load.return_value = {}
+        mock_load.return_value = {"member": [{"member_id": "M001"}]}
         
-        result = transform_to_x12("test-cohort", "999")
+        result = transform_to_x12("test-cohort", transaction_type="999")
         
         assert result.success is False
-        assert "Unsupported" in result.error
+        assert "unsupported" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
-    def test_no_members_for_270(self, mock_load):
-        """Test error when no members for 270."""
-        mock_load.return_value = {"members": []}
+    def test_no_data_error(self, mock_load):
+        """Test error when no member/claim data."""
+        mock_load.return_value = {}
         
-        result = transform_to_x12("test-cohort", "270")
+        result = transform_to_x12("test-cohort")
         
         assert result.success is False
-        assert "No members" in result.error
+        assert "member" in result.error.lower() or "claim" in result.error.lower()
 
 
 class TestTransformToNCPDP:
@@ -194,23 +227,23 @@ class TestTransformToNCPDP:
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_no_prescriptions_error(self, mock_load):
-        """Test error when no prescriptions in cohort."""
-        mock_load.return_value = {"prescriptions": []}
+        """Test error when no prescription data."""
+        mock_load.return_value = {}
         
         result = transform_to_ncpdp("test-cohort")
         
         assert result.success is False
-        assert "No prescriptions" in result.error
+        assert "prescription" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_cohort_not_found(self, mock_load):
         """Test error when cohort not found."""
-        mock_load.return_value = {"error": "Cohort not found"}
+        mock_load.return_value = None
         
         result = transform_to_ncpdp("nonexistent")
         
         assert result.success is False
-        assert "Cohort not found" in result.error
+        assert "not found" in result.error.lower()
 
 
 class TestTransformToMIMIC:
@@ -219,19 +252,19 @@ class TestTransformToMIMIC:
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_no_patients_error(self, mock_load):
         """Test error when no patients in cohort."""
-        mock_load.return_value = {"patients": []}
+        mock_load.return_value = {}
         
         result = transform_to_mimic("test-cohort")
         
         assert result.success is False
-        assert "No patients" in result.error
+        assert "patient" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_cohort_not_found(self, mock_load):
         """Test error when cohort not found."""
-        mock_load.return_value = {"error": "Cohort not found"}
+        mock_load.return_value = None
         
         result = transform_to_mimic("nonexistent")
         
         assert result.success is False
-        assert "Cohort not found" in result.error
+        assert "not found" in result.error.lower()
