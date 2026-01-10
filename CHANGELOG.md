@@ -6,6 +6,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added - Phase 5: UI Enhancements (January 10, 2026)
+- `src/healthsim_agent/ui/theme.py` - GitHub Dark theme
+  - COLORS: Full palette from UX specification
+  - HEALTHSIM_THEME: Rich Theme for consistent styling
+  - ICONS: Status indicators (✓ ✗ ⚠ → •)
+  - SPINNER_FRAMES: Braille animation sequence
+- `src/healthsim_agent/ui/formatters.py` - Data formatters
+  - format_tool_indicator: "→ tool_name" display
+  - format_result_headline: Success/error/warning with icons
+  - format_data_panel: Bordered data panels
+  - format_data_table: Tables with pagination hints
+  - format_suggestions: Next action suggestions
+  - format_error: Actionable error display
+  - format_cohort_summary: Token-efficient summary
+  - format_provider_results: Provider search results
+- `src/healthsim_agent/ui/suggestions.py` - Contextual suggestions
+  - SuggestionGenerator: Context-aware suggestion engine
+  - Tool-specific suggestion rules for all 10 tools
+  - Entity type tracking for relevant follow-ups
+- `src/healthsim_agent/ui/components.py` - Enhanced Rich components
+  - WelcomePanel: ASCII banner with quick start
+  - ToolIndicator: Tool invocation display
+  - ResultHeadline: Status with icons
+  - SuggestionBox: Next action suggestions
+  - StatusBar: Session info display
+  - ThinkingSpinner: Animated indicator
+  - ProgressDisplay: Progress bar for batch operations
+  - HelpDisplay: Categorized help
+- `src/healthsim_agent/ui/terminal.py` - Enhanced terminal UI
+  - Streaming response display support
+  - StreamingCallback for progressive text
+  - Tool indicator during execution
+  - Suggestion display after responses
+  - Session state tracking
+- Unit tests: 168 new UI tests
+  - test_ui_theme.py: 25 tests
+  - test_ui_formatters.py: 32 tests
+  - test_ui_suggestions.py: 18 tests
+  - test_ui_components.py: 51 tests
+  - test_ui_terminal.py: 42 tests
+- Total tests: 424 passing (up from 256)
+
 ### Added - Phase 4: Agent Tools (January 10, 2026)
 - `src/healthsim_agent/tools/base.py` - Tool result container and validation
   - ToolResult: Standard response format with success/error handling
