@@ -15,6 +15,7 @@ from healthsim_agent.products.patientsim.formats.export import (
     vitals_to_csv,
 )
 from healthsim_agent.products.patientsim.formats.fhir import FHIRTransformer
+from healthsim_agent.products.patientsim.formats.hl7v2 import HL7v2Generator
 
 __all__ = [
     # Export utilities
@@ -29,4 +30,5 @@ __all__ = [
     "vitals_to_csv",
     # Format transformers
     "FHIRTransformer",
+    "HL7v2Generator",
 ]
