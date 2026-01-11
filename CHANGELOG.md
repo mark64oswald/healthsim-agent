@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Missing serializers** - Added serialize_medication and serialize_lab_result to state/serializers.py
 - **ENTITY_TABLE_MAP cleanup** - Removed vital_signs entry (no table exists in schema)
 
+### Fixed - Agent Tool Result Session Bug (January 11, 2026, Session 3)
+- **"tool_use ids without tool_result" API error** - Tool results were appended to a local messages list but never saved to the session. On subsequent conversation turns, the API received tool_use blocks without corresponding tool_result blocks, causing 400 errors.
+- Fixed both `process_message()` and `process_message_streaming()` to save tool_results to the session using `self._session.add_message("user", tool_results)`
+
 ### Added - Phase 6 Testing Improvements (January 11, 2026, Session 3)
 - **Temporal Utility Tests** - `tests/unit/test_temporal_utils.py` (44 tests)
   - calculate_age tests (birthday handling, as_of dates)

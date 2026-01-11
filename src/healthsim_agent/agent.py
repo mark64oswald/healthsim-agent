@@ -767,15 +767,14 @@ Guidelines:
             # Extract tool calls and execute them
             tool_results = self._execute_tool_calls(response)
             
-            # Add assistant message and tool results to conversation
+            # Add assistant message (with tool_use blocks) to session
             self._session.add_message("assistant", response.content)
             
-            # Build tool result messages
+            # Add tool results to session (critical for conversation continuity)
+            self._session.add_message("user", tool_results)
+            
+            # Build messages for next API call
             messages = self._session.get_messages_for_api()
-            messages.append({
-                "role": "user",
-                "content": tool_results
-            })
             
             # Continue conversation
             response = self._client.messages.create(
@@ -913,10 +912,14 @@ Guidelines:
                         "content": json.dumps(result, default=str),
                     })
             
-            # Add to conversation and continue
+            # Add assistant message (with tool_use blocks) to session
             self._session.add_message("assistant", response.content)
+            
+            # Add tool results to session (critical for conversation continuity)
+            self._session.add_message("user", tool_results)
+            
+            # Build messages for next API call
             messages = self._session.get_messages_for_api()
-            messages.append({"role": "user", "content": tool_results})
             
             # Stream continuation
             with self._client.messages.stream(
