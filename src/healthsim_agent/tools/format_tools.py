@@ -88,10 +88,11 @@ def _resolve_data(data_or_cohort: Union[str, dict]) -> dict[str, list[dict]] | N
 def _parse_date(value: Any) -> date | None:
     if value is None:
         return None
-    if isinstance(value, date):
-        return value
+    # Check datetime BEFORE date (datetime is subclass of date)
     if isinstance(value, datetime):
         return value.date()
+    if isinstance(value, date):
+        return value
     if isinstance(value, str):
         try:
             return datetime.fromisoformat(value.replace('Z', '+00:00')).date()
@@ -152,8 +153,9 @@ def _parse_encounter_class(value: Any) -> EncounterClass:
 
 def _dict_to_patient(data: dict) -> Patient:
     """Convert dictionary to Patient model."""
-    name_data = data.get('name', {})
-    if isinstance(name_data, dict):
+    name_data = data.get('name')
+    # Use nested name dict if present AND non-empty
+    if name_data and isinstance(name_data, dict):
         name = PersonName(
             given_name=name_data.get('given_name', name_data.get('given', 'Unknown')),
             family_name=name_data.get('family_name', name_data.get('family', 'Unknown')),
@@ -162,6 +164,7 @@ def _dict_to_patient(data: dict) -> Patient:
             suffix=name_data.get('suffix'),
         )
     else:
+        # Fall back to top-level name fields
         name = PersonName(
             given_name=data.get('given_name', data.get('first_name', 'Unknown')),
             family_name=data.get('family_name', data.get('last_name', 'Unknown')),
@@ -179,13 +182,19 @@ def _dict_to_patient(data: dict) -> Patient:
             country=address_data.get('country', 'US'),
         )
     
+    # Get patient ID from various possible keys
+    patient_id = data.get('id', data.get('patient_id', ''))
+    
+    # MRN defaults to patient_id if not provided; ensure non-empty for validation
+    mrn = data.get('mrn') or patient_id or 'UNKNOWN'
+    
     return Patient(
-        id=data.get('id', data.get('patient_id', '')),
+        id=patient_id,
         name=name,
         birth_date=_parse_date(data.get('birth_date', data.get('dob'))) or date(1970, 1, 1),
         gender=_parse_gender(data.get('gender', data.get('sex'))),
         address=address,
-        mrn=data.get('mrn', data.get('id', '')),
+        mrn=mrn,
         ssn=data.get('ssn'),
         race=data.get('race'),
         language=data.get('language', 'en'),
@@ -364,7 +373,7 @@ def _dict_to_claim(data: dict) -> Claim:
 # Format Transformation Functions
 # ============================================================================
 
-def transform_to_fhir(data_or_cohort: Union[str, dict], bundle_type: str = "collection", as_eob: bool = False) -> ToolResult:
+def transform_to_fhir(cohort_id: Union[str, dict], bundle_type: str = "collection", as_eob: bool = False) -> ToolResult:
     """Transform data to FHIR R4 format.
     
     Supports both PatientSim clinical data and MemberSim financial data:
@@ -372,7 +381,7 @@ def transform_to_fhir(data_or_cohort: Union[str, dict], bundle_type: str = "coll
     - MemberSim: Coverage, Patient, Claim, ExplanationOfBenefit resources
     
     Args:
-        data_or_cohort: Either a cohort ID string OR a data dictionary with entity lists
+        cohort_id: Either a cohort ID/name string OR a data dictionary with entity lists
         bundle_type: Type of FHIR bundle (collection, batch, transaction)
         as_eob: For claims, generate ExplanationOfBenefit instead of Claim
     
@@ -380,7 +389,7 @@ def transform_to_fhir(data_or_cohort: Union[str, dict], bundle_type: str = "coll
         ToolResult with FHIR Bundle as dict
     """
     try:
-        data = _resolve_data(data_or_cohort)
+        data = _resolve_data(cohort_id)
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         
@@ -445,18 +454,18 @@ def transform_to_fhir(data_or_cohort: Union[str, dict], bundle_type: str = "coll
         return err(f"FHIR transformation failed: {str(e)}\n{traceback.format_exc()}")
 
 
-def transform_to_ccda(data_or_cohort: Union[str, dict], document_type: str = "ccd") -> ToolResult:
+def transform_to_ccda(cohort_id: Union[str, dict], document_type: str = "ccd") -> ToolResult:
     """Transform data to C-CDA format.
     
     Args:
-        data_or_cohort: Either a cohort ID string OR a data dictionary
+        cohort_id: Either a cohort ID/name string OR a data dictionary
         document_type: Type of C-CDA document (ccd, discharge_summary, progress_note)
     
     Returns:
         ToolResult with C-CDA XML string
     """
     try:
-        data = _resolve_data(data_or_cohort)
+        data = _resolve_data(cohort_id)
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         
@@ -504,18 +513,18 @@ def transform_to_ccda(data_or_cohort: Union[str, dict], document_type: str = "cc
         return err(f"C-CDA transformation failed: {str(e)}\n{traceback.format_exc()}")
 
 
-def transform_to_hl7v2(data_or_cohort: Union[str, dict], message_type: str = "ADT_A01") -> ToolResult:
+def transform_to_hl7v2(cohort_id: Union[str, dict], message_type: str = "ADT_A01") -> ToolResult:
     """Transform data to HL7v2 format.
     
     Args:
-        data_or_cohort: Either a cohort ID string OR a data dictionary
+        cohort_id: Either a cohort ID/name string OR a data dictionary
         message_type: Type of HL7v2 message (ADT_A01, ADT_A03, ADT_A08)
     
     Returns:
         ToolResult with list of HL7v2 message strings
     """
     try:
-        data = _resolve_data(data_or_cohort)
+        data = _resolve_data(cohort_id)
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         
@@ -565,11 +574,11 @@ def transform_to_hl7v2(data_or_cohort: Union[str, dict], message_type: str = "AD
         return err(f"HL7v2 transformation failed: {str(e)}\n{traceback.format_exc()}")
 
 
-def transform_to_x12(data_or_cohort: Union[str, dict], transaction_type: str = "837P") -> ToolResult:
+def transform_to_x12(cohort_id: Union[str, dict], transaction_type: str = "837P") -> ToolResult:
     """Transform data to X12 EDI format.
     
     Args:
-        data_or_cohort: Either a cohort ID string OR a data dictionary
+        cohort_id: Either a cohort ID/name string OR a data dictionary
         transaction_type: Type of X12 transaction (837P, 837I, 835, 834, 270, 271)
     
     Returns:
@@ -580,7 +589,7 @@ def transform_to_x12(data_or_cohort: Union[str, dict], transaction_type: str = "
             EDI270Generator, EDI271Generator
         )
         
-        data = _resolve_data(data_or_cohort)
+        data = _resolve_data(cohort_id)
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         
@@ -715,18 +724,18 @@ def transform_to_x12(data_or_cohort: Union[str, dict], transaction_type: str = "
         return err(f"X12 transformation failed: {str(e)}\n{traceback.format_exc()}")
 
 
-def transform_to_ncpdp(data_or_cohort: Union[str, dict], message_type: str = "B1") -> ToolResult:
+def transform_to_ncpdp(cohort_id: Union[str, dict], message_type: str = "B1") -> ToolResult:
     """Transform data to NCPDP D.0 format.
     
     Args:
-        data_or_cohort: Either a cohort ID string OR a data dictionary
+        cohort_id: Either a cohort ID/name string OR a data dictionary
         message_type: Type of NCPDP transaction (B1=billing, B2=reversal, B3=rebill)
     
     Returns:
         ToolResult with NCPDP D.0 transaction content
     """
     try:
-        data = _resolve_data(data_or_cohort)
+        data = _resolve_data(cohort_id)
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         
@@ -802,17 +811,17 @@ def transform_to_ncpdp(data_or_cohort: Union[str, dict], message_type: str = "B1
         return err(f"NCPDP transformation failed: {str(e)}\n{traceback.format_exc()}")
 
 
-def transform_to_mimic(data_or_cohort: Union[str, dict]) -> ToolResult:
+def transform_to_mimic(cohort_id: Union[str, dict]) -> ToolResult:
     """Transform data to MIMIC-III compatible format.
     
     Args:
-        data_or_cohort: Either a cohort ID string OR a data dictionary
+        cohort_id: Either a cohort ID/name string OR a data dictionary
     
     Returns:
         ToolResult with MIMIC-style tables as dict of lists
     """
     try:
-        data = _resolve_data(data_or_cohort)
+        data = _resolve_data(cohort_id)
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         

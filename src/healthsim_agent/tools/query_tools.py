@@ -109,7 +109,7 @@ def query(
 # =============================================================================
 
 def get_summary(
-    cohort_id_or_name: str,
+    cohort_id: str,
     include_samples: bool = True,
     samples_per_type: int = 3
 ) -> ToolResult:
@@ -119,7 +119,7 @@ def get_summary(
     without loading all entities (~500 tokens vs potentially 10K+).
     
     Args:
-        cohort_id_or_name: Cohort name or UUID
+        cohort_id: Cohort name or UUID (parameter name matches tool schema)
         include_samples: Whether to include sample entities (default True)
         samples_per_type: Number of samples per entity type (1-10, default 3)
         
@@ -133,7 +133,7 @@ def get_summary(
         >>> result.data["samples"]["patients"]
         [{"patient_id": "...", ...}, ...]
     """
-    if not cohort_id_or_name or not cohort_id_or_name.strip():
+    if not cohort_id or not cohort_id.strip():
         return err("Cohort name or ID is required")
     
     samples_per_type = max(1, min(samples_per_type, 10))
@@ -142,7 +142,7 @@ def get_summary(
         manager = get_manager().get_read_manager()
         
         summary = manager.get_summary(
-            cohort_id_or_name.strip(),
+            cohort_id.strip(),
             include_samples=include_samples,
             samples_per_type=samples_per_type,
         )

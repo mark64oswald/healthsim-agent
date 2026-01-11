@@ -107,22 +107,22 @@ def list_cohorts(
 # =============================================================================
 
 def load_cohort(
-    name_or_id: str,
+    cohort_id: str,
     include_entities: bool = True
 ) -> ToolResult:
     """Load a cohort by name or ID.
     
     Args:
-        name_or_id: Cohort name or UUID
+        cohort_id: Cohort name or UUID (parameter name matches tool schema)
         include_entities: Whether to include full entity data (default True)
         
     Returns:
         ToolResult with cohort data including metadata and optionally entities
     """
-    if not name_or_id or not name_or_id.strip():
+    if not cohort_id or not cohort_id.strip():
         return err("Cohort name or ID is required")
     
-    name_or_id = name_or_id.strip()
+    cohort_id_clean = cohort_id.strip()
     
     try:
         conn = get_manager().get_read_connection()
@@ -130,11 +130,11 @@ def load_cohort(
         # Try to find by ID or name
         row = conn.execute(
             "SELECT id, name, description, created_at, updated_at FROM cohorts WHERE id = ? OR name = ?",
-            [name_or_id, name_or_id]
+            [cohort_id_clean, cohort_id_clean]
         ).fetchone()
         
         if not row:
-            return err(f"Cohort not found: {name_or_id}")
+            return err(f"Cohort not found: {cohort_id_clean}")
         
         cohort = {
             "cohort_id": row[0],
@@ -445,44 +445,48 @@ def add_entities(
 # =============================================================================
 
 def delete_cohort(
-    name_or_id: str,
+    cohort_id: str,
     confirm: bool = False
 ) -> ToolResult:
     """Delete a cohort from the database.
     
     CAUTION: This permanently removes the cohort and all linked entities.
     You must set confirm=True to actually delete.
+    
+    Args:
+        cohort_id: Cohort name or UUID (parameter name matches tool schema)
+        confirm: Must be True to actually delete
     """
-    if not name_or_id or not name_or_id.strip():
+    if not cohort_id or not cohort_id.strip():
         return err("Cohort name or ID is required")
     
     if not confirm:
         return err(
             "Must set confirm=True to delete. This action is permanent.",
-            cohort=name_or_id
+            cohort=cohort_id
         )
     
-    name_or_id = name_or_id.strip()
+    cohort_id_clean = cohort_id.strip()
     
     try:
         with get_manager().write_connection() as conn:
             # Find cohort by ID or name
             row = conn.execute(
                 "SELECT id FROM cohorts WHERE id = ? OR name = ?",
-                [name_or_id, name_or_id]
+                [cohort_id_clean, cohort_id_clean]
             ).fetchone()
             
             if not row:
-                return err(f"Cohort not found: {name_or_id}")
+                return err(f"Cohort not found: {cohort_id_clean}")
             
-            cohort_id = row[0]
+            actual_cohort_id = row[0]
             
             # Delete entities, tags, and cohort
-            conn.execute("DELETE FROM cohort_entities WHERE cohort_id = ?", [cohort_id])
-            conn.execute("DELETE FROM cohort_tags WHERE cohort_id = ?", [cohort_id])
-            conn.execute("DELETE FROM cohorts WHERE id = ?", [cohort_id])
+            conn.execute("DELETE FROM cohort_entities WHERE cohort_id = ?", [actual_cohort_id])
+            conn.execute("DELETE FROM cohort_tags WHERE cohort_id = ?", [actual_cohort_id])
+            conn.execute("DELETE FROM cohorts WHERE id = ?", [actual_cohort_id])
         
-        return ok({"cohort": name_or_id}, status="deleted")
+        return ok({"cohort": cohort_id_clean}, status="deleted")
         
     except Exception as e:
         return err(f"Failed to delete cohort: {str(e)}")

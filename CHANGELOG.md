@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed - Tool Parameter Name Mismatches (January 11, 2026, Session 3 continued)
+- **Fixed load_cohort parameter mismatch** - Tool schema used `cohort_id`, function used `name_or_id`
+- **Fixed delete_cohort parameter mismatch** - Same issue
+- **Fixed get_summary parameter mismatch** - Used `cohort_id_or_name` instead of `cohort_id`
+- **Fixed transform_to_* parameter mismatches** - All format tools now use `cohort_id` consistently
+  - transform_to_fhir, transform_to_ccda, transform_to_hl7v2, transform_to_x12, 
+    transform_to_ncpdp, transform_to_mimic
+- This caused "got an unexpected keyword argument 'cohort_id'" errors in UAT
+
 ### Fixed - Missing vital_signs Support (January 11, 2026, Session 3 continued)
 - **Added vital_signs table** - LLM correctly generates vitals for ER encounters but no table existed
   - Created VITAL_SIGNS_DDL with columns: vital_type, loinc_code, value, unit, position, method, device
