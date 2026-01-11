@@ -9,6 +9,10 @@ from healthsim_agent.products.rxmembersim.claims.claim import (
     PharmacyClaim,
     TransactionCode,
 )
+from healthsim_agent.products.rxmembersim.claims.factory import (
+    PharmacyClaimFactory,
+    COMMON_DRUGS,
+)
 from healthsim_agent.products.rxmembersim.claims.response import (
     ClaimResponse,
     DURResponseAlert,
@@ -19,6 +23,9 @@ __all__ = [
     # Claim
     "TransactionCode",
     "PharmacyClaim",
+    # Factory
+    "PharmacyClaimFactory",
+    "COMMON_DRUGS",
     # Response
     "RejectCode",
     "DURResponseAlert",

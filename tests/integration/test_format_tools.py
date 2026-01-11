@@ -77,16 +77,22 @@ class TestFormatListing:
         result = list_output_formats()
         
         assert result.success is True
-        assert len(result.data) == 6
+        assert len(result.data) == 10  # 10 formats total
         
         # Verify all formats present
         formats = result.data
         assert "fhir_r4" in formats
         assert "ccda" in formats
         assert "hl7v2" in formats
-        assert "x12" in formats
-        assert "ncpdp_script" in formats
+        # X12 is split by transaction type
+        assert "x12_837" in formats
+        assert "x12_835" in formats
+        assert "x12_834" in formats
+        assert "ncpdp_d0" in formats
         assert "mimic_iii" in formats
+        # CDISC formats
+        assert "cdisc_sdtm" in formats
+        assert "cdisc_adam" in formats
     
     def test_format_metadata_complete(self):
         """Each format should have complete metadata."""

@@ -408,6 +408,67 @@ def generate_rx_members(
         return err(f"Rx member generation failed: {str(e)}")
 
 
+def generate_pharmacy_claims(
+    count: int = 3,
+    member_id: str | None = None,
+    include_member: bool = True,
+    drug_category: str | None = None,
+    date_range_days: int = 90,
+    seed: int | None = None,
+) -> ToolResult:
+    """Generate synthetic pharmacy claims with pricing and drug details.
+    
+    Args:
+        count: Number of claims to generate (1-50)
+        member_id: Generate claims for specific member (creates new member if not provided)
+        include_member: Include member data in output
+        drug_category: Filter to specific drug category (e.g., 'diabetes', 'cardiac', 'generic')
+        date_range_days: Date range to spread claims over (default 90 days)
+        seed: Random seed for reproducibility
+    
+    Returns:
+        ToolResult with generated pharmacy claims
+    """
+    try:
+        from healthsim_agent.products.rxmembersim.claims.factory import PharmacyClaimFactory
+        from healthsim_agent.products.rxmembersim.core.member import RxMemberFactory
+        
+        if count < 1 or count > 50:
+            return err("Count must be between 1 and 50")
+        
+        # Create factories
+        claim_factory = PharmacyClaimFactory(seed=seed)
+        member_factory = RxMemberFactory()
+        
+        # Get or create member
+        member = member_factory.generate()
+        
+        # Generate claims
+        claims = claim_factory.generate_for_member(
+            member=member,
+            count=count,
+            date_range_days=date_range_days,
+        )
+        
+        results = {
+            "pharmacy_claims": [_model_to_dict(claim) for claim in claims],
+        }
+        
+        if include_member:
+            results["rx_members"] = [_model_to_dict(member)]
+        
+        # Calculate totals
+        total_submitted = sum(float(c.gross_amount_due) for c in claims)
+        
+        return ok(
+            data=results,
+            message=f"Generated {len(claims)} pharmacy claims totaling ${total_submitted:.2f}"
+        )
+        
+    except Exception as e:
+        return err(f"Pharmacy claim generation failed: {str(e)}")
+
+
 def check_formulary(
     drug_name: str,
     ndc: str | None = None,
@@ -580,6 +641,7 @@ __all__ = [
     "generate_subjects",
     # RxMemberSim
     "generate_rx_members",
+    "generate_pharmacy_claims",
     "check_formulary",
     # Skills
     "list_skills",

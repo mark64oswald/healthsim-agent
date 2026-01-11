@@ -1,6 +1,6 @@
 """TrialSim format support.
 
-CDISC SDTM export for clinical trial data.
+CDISC SDTM and ADaM export for clinical trial data.
 """
 
 from healthsim_agent.products.trialsim.formats.sdtm import (
@@ -16,6 +16,18 @@ from healthsim_agent.products.trialsim.formats.sdtm import (
     get_required_variables,
 )
 
+from healthsim_agent.products.trialsim.formats.adam import (
+    ADAMDataset,
+    ADAMExportConfig,
+    ADAMExportResult,
+    ADAMExporter,
+    ADAMVariable,
+    ADSL_VARIABLES,
+    ADAE_VARIABLES,
+    ADEX_VARIABLES,
+    export_to_adam,
+)
+
 __all__ = [
     # SDTM domains
     "SDTMDomain",
@@ -29,4 +41,15 @@ __all__ = [
     "ExportResult",
     "ExportFormat",
     "export_to_sdtm",
+    # ADaM datasets
+    "ADAMDataset",
+    "ADAMVariable",
+    "ADSL_VARIABLES",
+    "ADAE_VARIABLES",
+    "ADEX_VARIABLES",
+    # ADaM exporter
+    "ADAMExporter",
+    "ADAMExportConfig",
+    "ADAMExportResult",
+    "export_to_adam",
 ]

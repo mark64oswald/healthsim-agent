@@ -31,9 +31,15 @@ class TestListOutputFormats:
         assert "fhir_r4" in result.data
         assert "ccda" in result.data
         assert "hl7v2" in result.data
-        assert "x12" in result.data
-        assert "ncpdp_script" in result.data
+        # X12 is split into specific transaction types
+        assert "x12_837" in result.data
+        assert "x12_835" in result.data
+        assert "x12_834" in result.data
+        assert "ncpdp_d0" in result.data
         assert "mimic_iii" in result.data
+        # CDISC formats
+        assert "cdisc_sdtm" in result.data
+        assert "cdisc_adam" in result.data
 
     def test_format_structure(self):
         """Test format info structure."""
@@ -52,18 +58,22 @@ class TestListOutputFormats:
         fhir = result.data["fhir_r4"]
         
         assert fhir["name"] == "FHIR R4"
-        # Entity types use singular form
-        assert "patient" in fhir["entity_types"]
-        assert "encounter" in fhir["entity_types"]
+        # Entity types use plural form
+        assert "patients" in fhir["entity_types"]
+        assert "encounters" in fhir["entity_types"]
 
     def test_x12_format_details(self):
         """Test X12 format details."""
         result = list_output_formats()
-        x12 = result.data["x12"]
+        # X12 837 for claims
+        x12_837 = result.data["x12_837"]
+        assert "837" in x12_837["name"]
+        assert "members" in x12_837["entity_types"] or "claims" in x12_837["entity_types"]
         
-        assert x12["name"] == "X12 EDI"
-        assert "member" in x12["entity_types"]
-        assert "claim" in x12["entity_types"]
+        # X12 834 for enrollment
+        x12_834 = result.data["x12_834"]
+        assert "834" in x12_834["name"]
+        assert "members" in x12_834["entity_types"]
 
 
 class TestDictToPatient:
@@ -127,7 +137,7 @@ class TestTransformToFHIR:
         result = transform_to_fhir("nonexistent")
         
         assert result.success is False
-        assert "not found" in result.error.lower()
+        assert "no data" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_no_patient_data(self, mock_load):
@@ -161,7 +171,7 @@ class TestTransformToCCDA:
         result = transform_to_ccda("nonexistent")
         
         assert result.success is False
-        assert "not found" in result.error.lower()
+        assert "no data" in result.error.lower()
 
 
 class TestTransformToHL7v2:
@@ -175,7 +185,7 @@ class TestTransformToHL7v2:
         result = transform_to_hl7v2("nonexistent")
         
         assert result.success is False
-        assert "not found" in result.error.lower()
+        assert "no data" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_no_patient_data(self, mock_load):
@@ -199,7 +209,7 @@ class TestTransformToX12:
         result = transform_to_x12("nonexistent")
         
         assert result.success is False
-        assert "not found" in result.error.lower()
+        assert "no data" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_unsupported_transaction_type(self, mock_load):
@@ -226,14 +236,15 @@ class TestTransformToNCPDP:
     """Tests for transform_to_ncpdp."""
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
-    def test_no_prescriptions_error(self, mock_load):
-        """Test error when no prescription data."""
+    def test_no_rx_data_error(self, mock_load):
+        """Test error when no rx member/pharmacy claim data."""
         mock_load.return_value = {}
         
         result = transform_to_ncpdp("test-cohort")
         
         assert result.success is False
-        assert "prescription" in result.error.lower()
+        # Updated error message mentions rx_member or pharmacy_claims
+        assert "rxmember" in result.error.lower() or "pharmacy" in result.error.lower()
 
     @patch('healthsim_agent.tools.format_tools._load_cohort_data')
     def test_cohort_not_found(self, mock_load):
@@ -243,7 +254,7 @@ class TestTransformToNCPDP:
         result = transform_to_ncpdp("nonexistent")
         
         assert result.success is False
-        assert "not found" in result.error.lower()
+        assert "no data" in result.error.lower()
 
 
 class TestTransformToMIMIC:
@@ -267,4 +278,4 @@ class TestTransformToMIMIC:
         result = transform_to_mimic("nonexistent")
         
         assert result.success is False
-        assert "not found" in result.error.lower()
+        assert "no data" in result.error.lower()
