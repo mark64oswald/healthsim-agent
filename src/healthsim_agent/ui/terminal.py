@@ -375,6 +375,34 @@ class TerminalUI:
                                         str(c.get("updated_at", ""))[:10]
                                     )
                                 self.console.print(table)
+                        elif name == "load_cohort" and isinstance(data, dict):
+                            cohort_name = data.get("name", "?")
+                            entity_counts = data.get("entity_counts", {})
+                            total = sum(entity_counts.values()) if entity_counts else 0
+                            self.show_result_success(f"Loaded '{cohort_name}' ({total} entities)")
+                            # Display entity breakdown
+                            if entity_counts:
+                                from rich.table import Table
+                                table = Table(show_header=True, header_style="bold cyan", title="Entity Breakdown")
+                                table.add_column("Type")
+                                table.add_column("Count", justify="right")
+                                for etype, count in sorted(entity_counts.items()):
+                                    table.add_row(etype, str(count))
+                                table.add_row("[bold]Total[/bold]", f"[bold]{total}[/bold]")
+                                self.console.print(table)
+                            # Show description if present
+                            if data.get("description"):
+                                self.console.print(f"[dim]Description:[/dim] {data['description']}")
+                            # Show tags if present  
+                            if data.get("tags"):
+                                self.console.print(f"[dim]Tags:[/dim] {', '.join(data['tags'])}")
+                        elif name == "save_cohort" and isinstance(data, dict):
+                            cohort_name = data.get("cohort_name", data.get("name", "?"))
+                            self.show_result_success(f"Saved cohort '{cohort_name}'")
+                        elif name == "add_entities" and isinstance(data, dict):
+                            added = data.get("entities_added_this_batch", 0)
+                            total = data.get("total_entities", added)
+                            self.show_result_success(f"Added {added} entities (total: {total})")
                         elif name == "get_summary" and isinstance(data, dict):
                             self.show_result_success(f"Cohort: {data.get('name', '?')}")
                             self.show_cohort_summary(data)
