@@ -35,8 +35,8 @@ COMMON_DRUGS = [
 ]
 
 
-class PharmacyClaimFactory:
-    """Factory for generating synthetic pharmacy claims."""
+class PharmacyClaimGenerator:
+    """Generator for synthetic pharmacy claims."""
     
     def __init__(self, seed: int | None = None):
         if seed is not None:
@@ -69,8 +69,8 @@ class PharmacyClaimFactory:
         
         # Generate member if not provided
         if member is None:
-            from healthsim_agent.products.rxmembersim.core.member import RxMemberFactory
-            member_factory = RxMemberFactory()
+            from healthsim_agent.products.rxmembersim.core.member import RxMemberGenerator
+            member_factory = RxMemberGenerator()
             member = member_factory.generate()
         
         # Select drug
@@ -159,4 +159,8 @@ class PharmacyClaimFactory:
         return claims
 
 
-__all__ = ["PharmacyClaimFactory", "COMMON_DRUGS"]
+# Legacy alias for backward compatibility
+PharmacyClaimFactory = PharmacyClaimGenerator
+
+
+__all__ = ["PharmacyClaimGenerator", "PharmacyClaimFactory", "COMMON_DRUGS"]

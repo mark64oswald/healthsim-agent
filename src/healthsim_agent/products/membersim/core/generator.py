@@ -155,8 +155,20 @@ class MemberGenerator(BaseGenerator):
         member: Member,
         service_date: date | None = None,
         num_lines: int | None = None,
+        use_real_providers: bool = False,
+        provider_state: str | None = None,
+        provider_specialty: str | None = None,
     ) -> Claim:
-        """Generate a claim for a member."""
+        """Generate a claim for a member.
+        
+        Args:
+            member: The member for this claim
+            service_date: Date of service (defaults to random recent date)
+            num_lines: Number of claim lines (defaults to 1-5)
+            use_real_providers: If True, use NPPES data for provider info
+            provider_state: State for provider lookup (defaults to member's state)
+            provider_specialty: Specialty filter for provider lookup
+        """
         self._claim_counter += 1
 
         if service_date is None:
@@ -188,16 +200,21 @@ class MemberGenerator(BaseGenerator):
         else:
             status = ClaimStatus.PAID
 
+        # Get provider info - try NPPES first if requested
+        provider_npi, provider_name, facility_name = self._get_provider_info(
+            use_real_providers=use_real_providers,
+            state=provider_state or member.state,
+            specialty=provider_specialty,
+        )
+
         return Claim(
             claim_id=f"CLM{self.random_int(1000000, 9999999)}",
             member_id=member.member_id,
             service_date=service_date,
             submission_date=submission_date,
-            provider_npi=str(self.random_int(1000000000, 9999999999)),
-            provider_name=f"Dr. {self.faker.last_name()}",
-            facility_name=self.random_choice(
-                ["General Hospital", "Medical Center", "Community Clinic", "Specialty Care"]
-            ),
+            provider_npi=provider_npi,
+            provider_name=provider_name,
+            facility_name=facility_name,
             status=status,
             claim_type=self.random_choice(["Professional", "Institutional"]),
             total_billed=total_billed,
@@ -205,6 +222,61 @@ class MemberGenerator(BaseGenerator):
             total_paid=total_paid,
             member_responsibility=member_responsibility,
             lines=lines,
+        )
+
+    def _get_provider_info(
+        self,
+        use_real_providers: bool = False,
+        state: str | None = None,
+        specialty: str | None = None,
+    ) -> tuple[str, str, str]:
+        """Get provider information, optionally from NPPES.
+        
+        Returns:
+            Tuple of (npi, provider_name, facility_name)
+        """
+        if use_real_providers and state:
+            try:
+                from healthsim_agent.tools.reference_tools import search_providers
+                
+                result = search_providers(
+                    state=state,
+                    specialty=specialty or "Family Medicine",
+                    entity_type="individual",
+                    limit=50,
+                )
+                
+                if result.success and result.data.get("providers"):
+                    providers = result.data["providers"]
+                    provider = self.random_choice(providers)
+                    
+                    npi = provider.get("npi", str(self.random_int(1000000000, 9999999999)))
+                    
+                    # Build name from NPPES data - use 'name' field or fallback
+                    name = provider.get("name", "")
+                    credential = provider.get("credential", "MD")
+                    if name:
+                        name = f"{name}, {credential}" if credential else name
+                    else:
+                        # Fallback to first/last fields if available
+                        first = provider.get("provider_first_name", "")
+                        last = provider.get("provider_last_name_legal_name", "Dr. Provider")
+                        name = f"{first} {last}, {credential}".strip()
+                    
+                    # Get organization if available
+                    org = provider.get("provider_organization_name_legal_business_name", "")
+                    facility = org if org else "Medical Practice"
+                    
+                    return npi, name, facility
+            except Exception:
+                # Fall through to synthetic generation
+                pass
+        
+        # Generate synthetic provider data
+        return (
+            str(self.random_int(1000000000, 9999999999)),
+            f"Dr. {self.faker.last_name()}",
+            self.random_choice(["General Hospital", "Medical Center", "Community Clinic", "Specialty Care"]),
         )
 
     def _generate_claim_line(self, line_number: int) -> ClaimLine:

@@ -10,7 +10,8 @@ from healthsim_agent.products.rxmembersim.claims.claim import (
     TransactionCode,
 )
 from healthsim_agent.products.rxmembersim.claims.factory import (
-    PharmacyClaimFactory,
+    PharmacyClaimGenerator,
+    PharmacyClaimFactory,  # Legacy alias
     COMMON_DRUGS,
 )
 from healthsim_agent.products.rxmembersim.claims.response import (
@@ -23,8 +24,9 @@ __all__ = [
     # Claim
     "TransactionCode",
     "PharmacyClaim",
-    # Factory
-    "PharmacyClaimFactory",
+    # Generator
+    "PharmacyClaimGenerator",
+    "PharmacyClaimFactory",  # Legacy alias
     "COMMON_DRUGS",
     # Response
     "RejectCode",

@@ -364,12 +364,17 @@ def _dict_to_claim(data: dict) -> Claim:
 # Format Transformation Functions
 # ============================================================================
 
-def transform_to_fhir(data_or_cohort: Union[str, dict], bundle_type: str = "collection") -> ToolResult:
+def transform_to_fhir(data_or_cohort: Union[str, dict], bundle_type: str = "collection", as_eob: bool = False) -> ToolResult:
     """Transform data to FHIR R4 format.
+    
+    Supports both PatientSim clinical data and MemberSim financial data:
+    - PatientSim: Patient, Encounter, Observation, DiagnosticReport resources
+    - MemberSim: Coverage, Patient, Claim, ExplanationOfBenefit resources
     
     Args:
         data_or_cohort: Either a cohort ID string OR a data dictionary with entity lists
         bundle_type: Type of FHIR bundle (collection, batch, transaction)
+        as_eob: For claims, generate ExplanationOfBenefit instead of Claim
     
     Returns:
         ToolResult with FHIR Bundle as dict
@@ -379,6 +384,39 @@ def transform_to_fhir(data_or_cohort: Union[str, dict], bundle_type: str = "coll
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         
+        # Check if this is MemberSim data (has members or claims)
+        members_data = data.get('members', data.get('member', []))
+        claims_data = data.get('claims', data.get('claim', []))
+        
+        if members_data or claims_data:
+            # MemberSim FHIR transformation
+            from healthsim_agent.products.membersim.formats.fhir import (
+                MemberSimFHIRTransformer, create_fhir_bundle
+            )
+            
+            members = [_dict_to_member(d) for d in members_data]
+            claims = [_dict_to_claim(d) for d in claims_data]
+            
+            transformer = MemberSimFHIRTransformer()
+            resources = []
+            
+            if members:
+                member_bundle = transformer.transform_members(members, include_patient=True)
+                resources.extend([e['resource'] for e in member_bundle.get('entry', [])])
+            
+            if claims:
+                claims_bundle = transformer.transform_claims(claims, members, as_eob=as_eob)
+                resources.extend([e['resource'] for e in claims_bundle.get('entry', [])])
+            
+            bundle = create_fhir_bundle(resources, bundle_type)
+            
+            resource_type = "ExplanationOfBenefit" if as_eob else "Claim"
+            return ok(
+                data=bundle,
+                message=f"Generated FHIR R4 bundle with {len(members)} members, {len(claims)} {resource_type}s"
+            )
+        
+        # PatientSim FHIR transformation (original behavior)
         patients = [_dict_to_patient(d) for d in data.get('patients', data.get('patient', []))]
         encounters = [_dict_to_encounter(d) for d in data.get('encounters', data.get('encounter', []))]
         diagnoses = [_dict_to_diagnosis(d) for d in data.get('diagnoses', data.get('diagnosis', []))]
@@ -532,18 +570,23 @@ def transform_to_x12(data_or_cohort: Union[str, dict], transaction_type: str = "
     
     Args:
         data_or_cohort: Either a cohort ID string OR a data dictionary
-        transaction_type: Type of X12 transaction (837P, 837I, 835, 834)
+        transaction_type: Type of X12 transaction (837P, 837I, 835, 834, 270, 271)
     
     Returns:
         ToolResult with X12 EDI content
     """
     try:
+        from healthsim_agent.products.membersim.formats.x12 import (
+            EDI270Generator, EDI271Generator
+        )
+        
         data = _resolve_data(data_or_cohort)
         if data is None:
             return err("No data found. Provide either a cohort ID or data dictionary.")
         
         members = [_dict_to_member(d) for d in data.get('members', data.get('member', []))]
         claims = [_dict_to_claim(d) for d in data.get('claims', data.get('claim', []))]
+        plans = data.get('plans', data.get('plan', []))
         
         if not members and not claims:
             return err("No member or claim data found. X12 requires members and/or claims.")
@@ -604,8 +647,69 @@ def transform_to_x12(data_or_cohort: Union[str, dict], transaction_type: str = "
                 message=f"Generated X12 834 enrollment with {len(members)} members"
             )
         
+        elif transaction_type == "270":
+            if not members:
+                return err("270 requires member data (eligibility inquiry)")
+            generator = EDI270Generator()
+            transactions = []
+            for member in members:
+                edi_content = generator.generate(member)
+                transactions.append(edi_content)
+            return ok(
+                data={"transactions": transactions, "type": "270", "inquiry_count": len(members)},
+                message=f"Generated X12 270 eligibility inquiries for {len(members)} members"
+            )
+        
+        elif transaction_type == "271":
+            if not members:
+                return err("271 requires member data (eligibility response)")
+            # Get plan data if available
+            plan = None
+            if plans:
+                from healthsim_agent.products.membersim.core.models import Plan
+                plan_data = plans[0] if isinstance(plans, list) else plans
+                plan = Plan(
+                    plan_code=plan_data.get('plan_code', plan_data.get('plan_id', 'PLAN001')),
+                    plan_name=plan_data.get('plan_name', 'Standard Plan'),
+                    plan_type=plan_data.get('plan_type', 'PPO'),
+                    deductible_individual=Decimal(str(plan_data.get('deductible_individual', 500))),
+                    deductible_family=Decimal(str(plan_data.get('deductible_family', 1500))),
+                    oop_max_individual=Decimal(str(plan_data.get('oop_max_individual', 3000))),
+                    oop_max_family=Decimal(str(plan_data.get('oop_max_family', 6000))),
+                    copay_pcp=Decimal(str(plan_data.get('copay_pcp', 25))),
+                    copay_specialist=Decimal(str(plan_data.get('copay_specialist', 50))),
+                    copay_er=Decimal(str(plan_data.get('copay_er', 150))),
+                    coinsurance=Decimal(str(plan_data.get('coinsurance', 0.2))),
+                )
+            else:
+                # Create default plan
+                from healthsim_agent.products.membersim.core.models import Plan
+                plan = Plan(
+                    plan_code="PLAN001",
+                    plan_name="Standard PPO",
+                    plan_type="PPO",
+                    deductible_individual=Decimal("500"),
+                    deductible_family=Decimal("1500"),
+                    oop_max_individual=Decimal("3000"),
+                    oop_max_family=Decimal("6000"),
+                    copay_pcp=Decimal("25"),
+                    copay_specialist=Decimal("50"),
+                    copay_er=Decimal("150"),
+                    coinsurance=Decimal("0.2"),
+                )
+            
+            generator = EDI271Generator()
+            transactions = []
+            for member in members:
+                edi_content = generator.generate(member, plan, is_eligible=member.is_active)
+                transactions.append(edi_content)
+            return ok(
+                data={"transactions": transactions, "type": "271", "response_count": len(members)},
+                message=f"Generated X12 271 eligibility responses for {len(members)} members"
+            )
+        
         else:
-            return err(f"Unsupported X12 transaction type: {transaction_type}. Supported: 837P, 837I, 835, 834")
+            return err(f"Unsupported X12 transaction type: {transaction_type}. Supported: 837P, 837I, 835, 834, 270, 271")
     except Exception as e:
         import traceback
         return err(f"X12 transformation failed: {str(e)}\n{traceback.format_exc()}")
@@ -1153,10 +1257,11 @@ def list_output_formats() -> ToolResult:
         "fhir_r4": {
             "name": "FHIR R4",
             "description": "HL7 FHIR R4 JSON bundles for interoperability",
-            "products": ["PatientSim"],
-            "entity_types": ["patients", "encounters", "diagnoses", "vitals", "labs"],
+            "products": ["PatientSim", "MemberSim"],
+            "entity_types": ["patients", "encounters", "diagnoses", "vitals", "labs", "members", "claims"],
             "output": "JSON Bundle",
             "tool": "transform_to_fhir",
+            "options": {"as_eob": "For claims, generate ExplanationOfBenefit instead of Claim"},
         },
         "ccda": {
             "name": "C-CDA",
@@ -1195,6 +1300,22 @@ def list_output_formats() -> ToolResult:
             "description": "HIPAA X12 834 enrollment/benefit",
             "products": ["MemberSim"],
             "entity_types": ["members"],
+            "output": "EDI segments",
+            "tool": "transform_to_x12",
+        },
+        "x12_270": {
+            "name": "X12 270",
+            "description": "HIPAA X12 270 eligibility inquiry",
+            "products": ["MemberSim"],
+            "entity_types": ["members"],
+            "output": "EDI segments",
+            "tool": "transform_to_x12",
+        },
+        "x12_271": {
+            "name": "X12 271",
+            "description": "HIPAA X12 271 eligibility response",
+            "products": ["MemberSim"],
+            "entity_types": ["members", "plans"],
             "output": "EDI segments",
             "tool": "transform_to_x12",
         },

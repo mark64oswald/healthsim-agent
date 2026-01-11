@@ -183,6 +183,8 @@ def generate_members(
     include_enrollment: bool = True,
     include_claims: bool = False,
     claims_per_member: int = 3,
+    use_real_providers: bool = False,
+    provider_state: str | None = None,
     seed: int | None = None,
 ) -> ToolResult:
     """Generate synthetic health plan member data.
@@ -193,6 +195,8 @@ def generate_members(
         include_enrollment: Include enrollment/coverage data
         include_claims: Generate claims for members
         claims_per_member: Number of claims per member if include_claims
+        use_real_providers: Use NPPES data for claim providers (requires database)
+        provider_state: State for provider lookup (defaults to member's state)
         seed: Random seed for reproducibility
     
     Returns:
@@ -222,7 +226,11 @@ def generate_members(
             
             if include_claims:
                 for _ in range(claims_per_member):
-                    claim = generator.generate_claim(member)
+                    claim = generator.generate_claim(
+                        member,
+                        use_real_providers=use_real_providers,
+                        provider_state=provider_state,
+                    )
                     results["claims"].append(_model_to_dict(claim))
         
         # Remove empty lists
@@ -255,6 +263,12 @@ def generate_subjects(
     include_visits: bool = False,
     include_adverse_events: bool = False,
     include_exposures: bool = False,
+    include_vitals: bool = False,
+    include_labs: bool = False,
+    include_medical_history: bool = False,
+    include_concomitant_meds: bool = False,
+    include_eligibility: bool = False,
+    lab_panel: str = "standard",
     seed: int | None = None,
 ) -> ToolResult:
     """Generate synthetic clinical trial subject data.
@@ -265,8 +279,14 @@ def generate_subjects(
         site_id: Site identifier
         age_range: Tuple of (min_age, max_age), defaults to (18, 75)
         include_visits: Generate visit schedule
-        include_adverse_events: Generate adverse events
+        include_adverse_events: Generate adverse events with MedDRA coding
         include_exposures: Generate drug exposure records
+        include_vitals: Generate vital signs (requires visits)
+        include_labs: Generate laboratory results with LOINC (requires visits)
+        include_medical_history: Generate medical history with MedDRA coding
+        include_concomitant_meds: Generate concomitant medications with ATC codes
+        include_eligibility: Generate eligibility criteria assessments
+        lab_panel: Lab panel type (standard, comprehensive, liver, renal, lipid, hematology)
         seed: Random seed for reproducibility
     
     Returns:
@@ -274,31 +294,49 @@ def generate_subjects(
     """
     try:
         from healthsim_agent.products.trialsim.core.generator import (
-            TrialSubjectGenerator,
+            SubjectGenerator,
             VisitGenerator,
             AdverseEventGenerator,
             ExposureGenerator,
+            VitalSignGenerator,
+            LabResultGenerator,
+            MedicalHistoryGenerator,
+            ConcomitantMedicationGenerator,
+            EligibilityGenerator,
         )
         
         if count < 1 or count > 100:
             return err("Count must be between 1 and 100")
         
-        subject_gen = TrialSubjectGenerator(seed=seed)
+        # Auto-enable visits if vitals or labs requested
+        if (include_vitals or include_labs) and not include_visits:
+            include_visits = True
+        
+        subject_gen = SubjectGenerator(seed=seed)
         visit_gen = VisitGenerator(seed=seed) if include_visits else None
         ae_gen = AdverseEventGenerator(seed=seed) if include_adverse_events else None
         exp_gen = ExposureGenerator(seed=seed) if include_exposures else None
+        vs_gen = VitalSignGenerator(seed=seed) if include_vitals else None
+        lab_gen = LabResultGenerator(seed=seed) if include_labs else None
+        mh_gen = MedicalHistoryGenerator(seed=seed) if include_medical_history else None
+        cm_gen = ConcomitantMedicationGenerator(seed=seed) if include_concomitant_meds else None
+        ie_gen = EligibilityGenerator(seed=seed) if include_eligibility else None
         
         results = {
             "subjects": [],
             "visits": [],
             "adverse_events": [],
             "exposures": [],
+            "vital_signs": [],
+            "lab_results": [],
+            "medical_history": [],
+            "concomitant_meds": [],
+            "eligibility": [],
         }
         
         # Parse age_range for kwargs
         kwargs = {}
         if age_range:
-            # Generate random age in range for each subject
             import random
             rng = random.Random(seed)
             ages = [rng.randint(age_range[0], age_range[1]) for _ in range(count)]
@@ -316,13 +354,14 @@ def generate_subjects(
             )
             results["subjects"].append(_model_to_dict(subject))
             
+            visits = []
             if visit_gen:
                 visits = visit_gen.generate_schedule(subject)
                 for visit in visits:
                     results["visits"].append(_model_to_dict(visit))
             
             if ae_gen:
-                aes = ae_gen.generate_for_subject(subject)
+                aes = ae_gen.generate_for_subject(subject, visits=visits if visits else None)
                 for ae in aes:
                     results["adverse_events"].append(_model_to_dict(ae))
             
@@ -330,6 +369,32 @@ def generate_subjects(
                 exposures = exp_gen.generate_for_subject(subject)
                 for exp in exposures:
                     results["exposures"].append(_model_to_dict(exp))
+            
+            if vs_gen and visits:
+                for visit in visits:
+                    vitals = vs_gen.generate_for_visit(subject, visit)
+                    for vs in vitals:
+                        results["vital_signs"].append(_model_to_dict(vs))
+            
+            if lab_gen and visits:
+                labs = lab_gen.generate_for_subject(subject, visits, panel=lab_panel)
+                for lab in labs:
+                    results["lab_results"].append(_model_to_dict(lab))
+            
+            if mh_gen:
+                histories = mh_gen.generate_for_subject(subject)
+                for mh in histories:
+                    results["medical_history"].append(_model_to_dict(mh))
+            
+            if cm_gen:
+                conmeds = cm_gen.generate_for_subject(subject)
+                for cm in conmeds:
+                    results["concomitant_meds"].append(_model_to_dict(cm))
+            
+            if ie_gen:
+                eligibility = ie_gen.generate_for_subject(subject)
+                for ie in eligibility:
+                    results["eligibility"].append(_model_to_dict(ie))
         
         # Remove empty lists
         results = {k: v for k, v in results.items() if v}
@@ -341,6 +406,16 @@ def generate_subjects(
             summary_parts.append(f"{len(results['adverse_events'])} AEs")
         if results.get("exposures"):
             summary_parts.append(f"{len(results['exposures'])} exposures")
+        if results.get("vital_signs"):
+            summary_parts.append(f"{len(results['vital_signs'])} vitals")
+        if results.get("lab_results"):
+            summary_parts.append(f"{len(results['lab_results'])} labs")
+        if results.get("medical_history"):
+            summary_parts.append(f"{len(results['medical_history'])} MH records")
+        if results.get("concomitant_meds"):
+            summary_parts.append(f"{len(results['concomitant_meds'])} conmeds")
+        if results.get("eligibility"):
+            summary_parts.append(f"{len(results['eligibility'])} IE records")
         
         return ok(
             data=results,
@@ -348,7 +423,8 @@ def generate_subjects(
         )
         
     except Exception as e:
-        return err(f"Subject generation failed: {str(e)}")
+        import traceback
+        return err(f"Subject generation failed: {str(e)}\n{traceback.format_exc()}")
 
 
 # =============================================================================
@@ -375,12 +451,12 @@ def generate_rx_members(
         ToolResult with generated Rx member data
     """
     try:
-        from healthsim_agent.products.rxmembersim.core.member import RxMemberFactory
+        from healthsim_agent.products.rxmembersim.core.member import RxMemberGenerator
         
         if count < 1 or count > 100:
             return err("Count must be between 1 and 100")
         
-        factory = RxMemberFactory()
+        factory = RxMemberGenerator()
         
         results = {
             "rx_members": [],
@@ -430,21 +506,21 @@ def generate_pharmacy_claims(
         ToolResult with generated pharmacy claims
     """
     try:
-        from healthsim_agent.products.rxmembersim.claims.factory import PharmacyClaimFactory
-        from healthsim_agent.products.rxmembersim.core.member import RxMemberFactory
+        from healthsim_agent.products.rxmembersim.claims.factory import PharmacyClaimGenerator
+        from healthsim_agent.products.rxmembersim.core.member import RxMemberGenerator
         
         if count < 1 or count > 50:
             return err("Count must be between 1 and 50")
         
-        # Create factories
-        claim_factory = PharmacyClaimFactory(seed=seed)
-        member_factory = RxMemberFactory()
+        # Create generators
+        claim_gen = PharmacyClaimGenerator(seed=seed)
+        member_gen = RxMemberGenerator()
         
         # Get or create member
-        member = member_factory.generate()
+        member = member_gen.generate()
         
         # Generate claims
-        claims = claim_factory.generate_for_member(
+        claims = claim_gen.generate_for_member(
             member=member,
             count=count,
             date_range_days=date_range_days,
