@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added - Phase 6 Testing Improvements (January 11, 2026)
+- **Validation Module Tests** - `tests/unit/test_validation_framework.py` (26 tests)
+  - ValidationSeverity enum tests
+  - ValidationIssue dataclass tests
+  - ValidationResult class tests (add_issue, merge, filtering)
+  - BaseValidator and CompositeValidator tests
+  - StructuralValidator tests
+- **Structural Validation Tests** - `tests/unit/test_validation_structural.py` (20 tests)
+  - ReferentialIntegrityValidator tests
+  - validate_reference, validate_required_reference, validate_unique_ids, validate_foreign_key
+  - Entity graph integration tests
+- **Temporal Validation Tests** - `tests/unit/test_validation_temporal.py` (31 tests)
+  - TemporalValidator tests
+  - validate_date_not_future, validate_date_order, validate_duration, validate_age_range
+  - Encounter timeline and trial eligibility integration tests
+- **RxMemberSim Claims Tests** - `tests/unit/test_rxmembersim_claims.py` (44 tests)
+  - PharmacyClaim and TransactionCode model tests
+  - ClaimResponse, RejectCode, DURResponseAlert model tests
+  - AdjudicationEngine tests (eligibility, pricing, PA requirements)
+  - PharmacyClaimGenerator factory tests
+  - COMMON_DRUGS reference data tests
+- Total tests: 811 passing (121 new)
+- Coverage improved from 50% to 53%
+- Phase 6 Testing Plan documented in `docs/PHASE-6-TESTING-PLAN.md`
+
 ### Added - Skills Management System (January 10, 2026)
 - `src/healthsim_agent/tools/skill_tools.py` - Comprehensive skill management (1230 lines)
   - **Index & Search**: `index_skills()`, `search_skills()`, `get_skill()`, `list_skill_products()`
