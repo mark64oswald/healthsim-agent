@@ -21,6 +21,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - TemporalValidator tests
   - validate_date_not_future, validate_date_order, validate_duration, validate_age_range
   - Encounter timeline and trial eligibility integration tests
+- **Auto Naming Tests** - `tests/unit/test_auto_naming.py` (38 tests)
+  - extract_keywords tests (healthcare priority, stop words, entity types)
+  - sanitize_name tests (lowercase, hyphens, special chars, max length)
+  - ensure_unique_name tests (counters, high counter fallback)
+  - generate_cohort_name tests (keywords, context, prefix, date)
+  - parse_cohort_name tests (date, counter, keywords extraction)
+  - Constants sanity checks (STOP_WORDS, HEALTHCARE_KEYWORDS)
+- **Temporal Periods Tests** - `tests/unit/test_temporal_periods.py` (48 tests)
+  - Period dataclass tests (creation, duration, contains, overlaps, adjacent)
+  - Period merge and iteration tests
+  - PeriodCollection tests (add, gaps, overlaps, consolidate, contains)
+  - TimePeriod Pydantic model tests (validation, duration, overlaps, merge)
+- **Temporal Timeline Tests** - `tests/unit/test_temporal_timeline.py` (56 tests)
+  - EventStatus enum tests
+  - EventDelay tests (fixed, range, custom RNG)
+  - TimelineEvent tests (creation, status marking, comparison)
+  - Timeline tests (add, create, schedule, query by type/status/range)
+  - Timeline iteration and completion tests
+  - Dependency-based scheduling tests
 - **RxMemberSim DUR Tests** - `tests/unit/test_rxmembersim_dur.py` (43 tests)
   - DURAlertType, ClinicalSignificance enum tests
   - DURReasonForService, DURProfessionalService, DURResultOfService enum tests
@@ -35,8 +54,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - SDTMExporter tests (DM, AE, EX, SV domains)
   - File export and filtered domain tests
   - SDTM conversion method tests (USUBJID format, demographics, arm)
-- Total tests: 889 passing (199 new)
-- Coverage improved from 50% to 55%
+- **Coverage milestones:**
+  - Total tests: 1031 passing (341 new from baseline 690)
+  - Coverage improved from 50% to 57%
+  - validation/framework.py: 100%, temporal.py: 100%, structural.py: 95%
+  - state/auto_naming.py: 100% (was 12%)
+  - temporal/periods.py: 95% (was 32%)
+  - temporal/timeline.py: 94% (was 40%)
 - Phase 6 Testing Plan documented in `docs/PHASE-6-TESTING-PLAN.md`
 
 ### Added - Skills Management System (January 10, 2026)
