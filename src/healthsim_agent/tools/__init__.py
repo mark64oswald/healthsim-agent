@@ -80,6 +80,28 @@ from .validation_tools import (
     fix_validation_issues,
 )
 
+from .skill_tools import (
+    # Index and search
+    index_skills,
+    search_skills,
+    get_skill,
+    list_skill_products,
+    # CRUD operations
+    save_skill,
+    update_skill,
+    delete_skill,
+    # Validation
+    validate_skill,
+    # Versioning
+    get_skill_versions,
+    restore_skill_version,
+    # Templates and creation
+    get_skill_template,
+    create_skill_from_spec,
+    # Statistics
+    get_skill_stats,
+)
+
 
 __all__ = [
     # Base
@@ -122,4 +144,18 @@ __all__ = [
     # Validation tools
     "validate_data",
     "fix_validation_issues",
+    # Skill tools
+    "index_skills",
+    "search_skills",
+    "get_skill",
+    "list_skill_products",
+    "save_skill",
+    "update_skill",
+    "delete_skill",
+    "validate_skill",
+    "get_skill_versions",
+    "restore_skill_version",
+    "get_skill_template",
+    "create_skill_from_spec",
+    "get_skill_stats",
 ]

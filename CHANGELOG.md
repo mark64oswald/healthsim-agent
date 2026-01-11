@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added - Skills Management System (January 10, 2026)
+- `src/healthsim_agent/tools/skill_tools.py` - Comprehensive skill management (1230 lines)
+  - **Index & Search**: `index_skills()`, `search_skills()`, `get_skill()`, `list_skill_products()`
+  - **CRUD Operations**: `save_skill()`, `update_skill()`, `delete_skill()`
+  - **Validation**: `validate_skill()` with quality scoring (0-100)
+  - **Versioning**: `get_skill_versions()`, `restore_skill_version()`
+  - **Templates**: `get_skill_template()` for guided creation
+  - **Spec-based Creation**: `create_skill_from_spec()` for conversational workflow
+  - **Statistics**: `get_skill_stats()` for library overview
+- Database schema for skill management:
+  - `skill_index`: Metadata for fast searching (product, type, triggers, tags)
+  - `skill_content`: Full-text content for semantic search
+  - `skill_versions`: Version history with content backup
+- Four skill templates: scenario, template, pattern, integration
+- Validation rules by skill type with required sections
+- `docs/SKILLS-MANAGEMENT.md` - Comprehensive documentation (309 lines)
+  - Architecture overview
+  - Conversational workflow examples
+  - API reference
+  - Best practices
+- `tests/unit/test_skill_tools.py` - 27 tests covering all functionality
+- Total tests: 690 passing (27 new)
+
 ### Added - Phase 6: CLI & Integration (January 10, 2026)
 - Enhanced CLI with subcommands (`main.py`)
   - `healthsim chat` - Interactive chat session (default)
