@@ -186,6 +186,8 @@ def err(error: str, **metadata) -> ToolResult:
 def normalize_entity_type(entity_type: str) -> str:
     """Normalize entity type to lowercase plural form.
     
+    Handles common irregular plurals in healthcare domain.
+    
     Args:
         entity_type: Raw entity type string
         
@@ -195,13 +197,28 @@ def normalize_entity_type(entity_type: str) -> str:
     Example:
         >>> normalize_entity_type("Patient")
         'patients'
+        >>> normalize_entity_type("diagnosis")
+        'diagnoses'
         >>> normalize_entity_type("claims")
         'claims'
     """
-    normalized = entity_type.lower()
-    if not normalized.endswith('s'):
-        normalized += 's'
-    return normalized
+    normalized = entity_type.lower().strip()
+    
+    # Handle irregular plurals FIRST (before checking if ends with 's')
+    # Words ending in -is → -es (Greek/Latin origin, common in medicine)
+    if normalized.endswith('is') and not normalized.endswith('es'):
+        return normalized[:-2] + 'es'  # diagnosis → diagnoses, analysis → analyses
+    
+    # Already plural - return as-is
+    if normalized.endswith('s'):
+        return normalized
+    
+    # Words ending in -y after consonant → -ies
+    if normalized.endswith('y') and len(normalized) > 1 and normalized[-2] not in 'aeiou':
+        return normalized[:-1] + 'ies'  # pharmacy → pharmacies, study → studies
+    
+    # Standard pluralization - add 's'
+    return normalized + 's'
 
 
 def validate_entity_types(

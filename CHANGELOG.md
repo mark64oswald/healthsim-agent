@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed - Entity Type Normalization Bug (January 11, 2026, Session 3 continued)
+- **normalize_entity_type bug** - Fixed plural conversion for Greek/Latin medical terms:
+  - `diagnosis` → `diagnoses` (was incorrectly treated as already plural because it ends in 's')
+  - `analysis` → `analyses` 
+  - Now handles `-is` → `-es` conversion before checking if word ends in 's'
+
 ### Fixed - Entity Type Taxonomy (January 11, 2026, Session 3)
 - **Comprehensive entity type audit** - Audited all products against database schema to identify gaps
 - **save_cohort "Unknown entity type: diagnosis" error** - Added missing clinical observation types
