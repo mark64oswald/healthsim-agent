@@ -420,11 +420,11 @@ class TerminalUI:
                             messages = data.get("messages", [])
                             if messages:
                                 from rich.panel import Panel
-                                from rich.syntax import Syntax
                                 for i, msg in enumerate(messages[:5], 1):  # Limit to 5
-                                    # HL7v2 uses | delimiters, show as plain text
+                                    # HL7v2 uses \r as segment delimiter - convert to newlines for display
+                                    formatted_msg = msg.replace('\r', '\n')
                                     panel = Panel(
-                                        msg[:2000] + ("..." if len(msg) > 2000 else ""),
+                                        formatted_msg[:2000] + ("..." if len(formatted_msg) > 2000 else ""),
                                         title=f"[bold cyan]Message {i}[/bold cyan]",
                                         border_style="dim"
                                     )
@@ -432,14 +432,26 @@ class TerminalUI:
                                 if len(messages) > 5:
                                     self.console.print(f"[dim]... and {len(messages) - 5} more messages[/dim]")
                         elif name == "transform_to_fhir" and isinstance(data, dict):
-                            bundle = data.get("bundle", {})
-                            count = len(bundle.get("entry", [])) if bundle else 0
+                            # Data IS the bundle (not nested under "bundle" key)
+                            entries = data.get("entry", [])
+                            count = len(entries)
                             self.show_result_success(f"Generated FHIR Bundle with {count} resources")
                             # Show summary of resource types
-                            if bundle and bundle.get("entry"):
+                            if entries:
                                 from collections import Counter
-                                types = Counter(e.get("resource", {}).get("resourceType", "?") for e in bundle["entry"])
+                                types = Counter(e.get("resource", {}).get("resourceType", "?") for e in entries)
                                 self.console.print(f"[dim]Resources: {dict(types)}[/dim]")
+                                # Show JSON preview of first resource
+                                import json
+                                from rich.panel import Panel
+                                from rich.syntax import Syntax
+                                first_resource = entries[0].get("resource", {})
+                                preview_json = json.dumps(first_resource, indent=2)[:1500]
+                                if len(json.dumps(first_resource, indent=2)) > 1500:
+                                    preview_json += "\n..."
+                                syntax = Syntax(preview_json, "json", theme="monokai", line_numbers=False)
+                                panel = Panel(syntax, title=f"[bold cyan]Sample: {first_resource.get('resourceType', 'Resource')}[/bold cyan]", border_style="dim")
+                                self.console.print(panel)
                         elif name == "transform_to_ccda" and isinstance(data, dict):
                             doc_type = data.get("document_type", "C-CDA")
                             self.show_result_success(f"Generated {doc_type} document")
@@ -470,6 +482,158 @@ class TerminalUI:
                                 from rich.panel import Panel
                                 preview = tx[:2000] + ("..." if len(tx) > 2000 else "")
                                 panel = Panel(preview, title="[bold cyan]NCPDP D.0 Transaction[/bold cyan]", border_style="dim")
+                                self.console.print(panel)
+                        elif name == "transform_to_mimic" and isinstance(data, dict):
+                            tables = [k for k in data.keys() if k.isupper()]
+                            self.show_result_success(f"Generated MIMIC-III tables: {', '.join(tables)}")
+                            # Show row counts per table
+                            from rich.table import Table
+                            table = Table(show_header=True, header_style="bold cyan", title="MIMIC-III Tables")
+                            table.add_column("Table")
+                            table.add_column("Rows", justify="right")
+                            for tbl_name in tables:
+                                rows = data.get(tbl_name, [])
+                                table.add_row(tbl_name, str(len(rows) if isinstance(rows, list) else 1))
+                            self.console.print(table)
+                        elif name == "delete_cohort" and isinstance(data, dict):
+                            cohort_name = data.get("cohort_name", data.get("name", "cohort"))
+                            self.show_result_success(f"Deleted cohort '{cohort_name}'")
+                        elif name == "list_tables" and isinstance(data, dict):
+                            total = data.get("total", 0)
+                            self.show_result_success(f"Found {total} tables")
+                            from rich.table import Table
+                            table = Table(show_header=True, header_style="bold cyan")
+                            table.add_column("Category")
+                            table.add_column("Tables")
+                            for cat in ["reference_tables", "entity_tables", "system_tables"]:
+                                tables = data.get(cat, [])
+                                if tables:
+                                    table.add_row(cat.replace("_", " ").title(), ", ".join(tables[:10]) + ("..." if len(tables) > 10 else ""))
+                            self.console.print(table)
+                        elif name == "list_skills" and isinstance(data, dict):
+                            total_skills = sum(len(v) for v in data.values())
+                            self.show_result_success(f"Found {total_skills} skills across {len(data)} products")
+                            from rich.table import Table
+                            table = Table(show_header=True, header_style="bold cyan")
+                            table.add_column("Product")
+                            table.add_column("Skills", justify="right")
+                            for product, skills in data.items():
+                                table.add_row(product, str(len(skills)))
+                            self.console.print(table)
+                        elif name == "describe_skill" and isinstance(data, dict):
+                            skill_name = data.get("name", "?")
+                            self.show_result_success(f"Skill: {skill_name}")
+                            if data.get("description"):
+                                self.console.print(f"[dim]{data['description'][:500]}[/dim]")
+                        elif name == "list_output_formats" and isinstance(data, dict):
+                            self.show_result_success(f"Found {len(data)} output formats")
+                            from rich.table import Table
+                            table = Table(show_header=True, header_style="bold cyan")
+                            table.add_column("Format")
+                            table.add_column("Tool")
+                            table.add_column("Products")
+                            for fmt_id, fmt in data.items():
+                                table.add_row(fmt.get("name", fmt_id), fmt.get("tool", "?"), ", ".join(fmt.get("products", [])))
+                            self.console.print(table)
+                        elif name == "list_profiles" and isinstance(data, dict):
+                            profiles = data.get("profiles", [])
+                            self.show_result_success(f"Found {len(profiles)} profiles")
+                            if profiles:
+                                from rich.table import Table
+                                table = Table(show_header=True, header_style="bold cyan")
+                                table.add_column("Name")
+                                table.add_column("Description")
+                                for p in profiles[:20]:
+                                    table.add_row(p.get("name", "?"), (p.get("description", "") or "")[:50])
+                                self.console.print(table)
+                        elif name == "list_journeys" and isinstance(data, dict):
+                            journeys = data.get("journeys", [])
+                            self.show_result_success(f"Found {len(journeys)} journeys")
+                            if journeys:
+                                from rich.table import Table
+                                table = Table(show_header=True, header_style="bold cyan")
+                                table.add_column("Name")
+                                table.add_column("Steps")
+                                for j in journeys[:20]:
+                                    table.add_row(j.get("name", "?"), str(len(j.get("steps", []))))
+                                self.console.print(table)
+                        elif name in ("save_profile", "load_profile", "delete_profile") and isinstance(data, dict):
+                            profile_name = data.get("profile_name", data.get("name", "profile"))
+                            action = name.replace("_profile", "").replace("_", " ").title() + "d"
+                            self.show_result_success(f"{action} profile '{profile_name}'")
+                        elif name in ("save_journey", "load_journey", "delete_journey") and isinstance(data, dict):
+                            journey_name = data.get("journey_name", data.get("name", "journey"))
+                            action = name.replace("_journey", "").replace("_", " ").title() + "d"
+                            self.show_result_success(f"{action} journey '{journey_name}'")
+                        elif name in ("execute_profile", "execute_journey") and isinstance(data, dict):
+                            entity_name = name.replace("execute_", "")
+                            self.show_result_success(f"Executed {entity_name}")
+                            # Show execution results
+                            if data.get("entities_generated"):
+                                self.console.print(f"[dim]Entities generated: {data['entities_generated']}[/dim]")
+                        elif name == "export_json" and isinstance(data, dict):
+                            size = data.get("size_bytes", 0)
+                            self.show_result_success(f"Exported JSON ({size:,} bytes)")
+                            # Show preview
+                            json_content = data.get("json", "")
+                            if json_content:
+                                from rich.panel import Panel
+                                from rich.syntax import Syntax
+                                preview = json_content[:2000] + ("..." if len(json_content) > 2000 else "")
+                                syntax = Syntax(preview, "json", theme="monokai", line_numbers=False)
+                                panel = Panel(syntax, title="[bold cyan]JSON Export[/bold cyan]", border_style="dim")
+                                self.console.print(panel)
+                        elif name == "export_ndjson" and isinstance(data, dict):
+                            records = data.get("records", 0)
+                            self.show_result_success(f"Exported NDJSON ({records} records)")
+                            # Show preview
+                            ndjson_content = data.get("ndjson", "")
+                            if ndjson_content:
+                                from rich.panel import Panel
+                                lines = ndjson_content.split('\n')[:5]
+                                preview = '\n'.join(lines) + ("\n..." if len(ndjson_content.split('\n')) > 5 else "")
+                                panel = Panel(preview, title="[bold cyan]NDJSON Export (first 5 records)[/bold cyan]", border_style="dim")
+                                self.console.print(panel)
+                        elif name == "validate_data" and isinstance(data, dict):
+                            valid = data.get("valid", False)
+                            errors = data.get("errors", [])
+                            warnings = data.get("warnings", [])
+                            if valid:
+                                self.show_result_success(f"Validation passed ({len(warnings)} warnings)")
+                            else:
+                                self.show_result_warning(f"Validation failed: {len(errors)} errors, {len(warnings)} warnings")
+                            if errors:
+                                for err in errors[:5]:
+                                    self.console.print(f"  [red]✗[/red] {err}")
+                            if warnings:
+                                for warn in warnings[:5]:
+                                    self.console.print(f"  [yellow]⚠[/yellow] {warn}")
+                        elif name == "fix_validation_issues" and isinstance(data, dict):
+                            fixed = data.get("fixed_count", 0)
+                            self.show_result_success(f"Fixed {fixed} validation issues")
+                        elif name == "check_formulary" and isinstance(data, dict):
+                            covered = data.get("covered", False)
+                            tier = data.get("tier", "?")
+                            if covered:
+                                self.show_result_success(f"Drug covered - Tier {tier}")
+                            else:
+                                self.show_result_warning("Drug not covered")
+                            if data.get("alternatives"):
+                                self.console.print(f"[dim]Alternatives: {', '.join(data['alternatives'][:3])}[/dim]")
+                        elif name.startswith("generate_") and isinstance(data, dict):
+                            # Generation tools return generated entities
+                            entity_type = name.replace("generate_", "")
+                            count = data.get("count", len(data.get("entities", [])))
+                            self.show_result_success(f"Generated {count} {entity_type}")
+                            # Show preview of first entity
+                            entities = data.get("entities", [])
+                            if entities:
+                                import json
+                                from rich.panel import Panel
+                                from rich.syntax import Syntax
+                                preview = json.dumps(entities[0], indent=2, default=str)[:1000]
+                                syntax = Syntax(preview, "json", theme="monokai", line_numbers=False)
+                                panel = Panel(syntax, title=f"[bold cyan]Sample {entity_type[:-1]}[/bold cyan]", border_style="dim")
                                 self.console.print(panel)
                         else:
                             self.show_result_success(f"{name} completed")
