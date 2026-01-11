@@ -2,15 +2,37 @@
 
 These tests verify database connectivity and basic tool operations.
 Format transformation tests are in unit tests with proper mocking.
+
+Note: Write connection tests may fail if the HealthSim agent/MCP server
+is running, as DuckDB only allows one write connection at a time.
 """
 
 import pytest
 import json
 import uuid
+import duckdb
 
 from healthsim_agent.tools.connection import get_manager
 from healthsim_agent.tools.format_tools import list_output_formats
 from healthsim_agent.tools.base import ok, err
+
+
+def db_write_available():
+    """Check if database write connection is available."""
+    try:
+        manager = get_manager()
+        with manager.write_connection() as conn:
+            conn.execute("SELECT 1")
+        return True
+    except duckdb.IOException:
+        return False
+
+
+# Skip write tests if another process holds the DB lock
+skip_if_db_locked = pytest.mark.skipif(
+    not db_write_available(),
+    reason="Database write lock held by another process (agent/MCP server running)"
+)
 
 
 class TestDatabaseConnection:
@@ -27,6 +49,7 @@ class TestDatabaseConnection:
         result = conn.execute("SELECT 1 as test").fetchone()
         assert result[0] == 1
     
+    @skip_if_db_locked
     def test_write_connection(self):
         """Should establish write connection via context manager."""
         manager = get_manager()
@@ -42,6 +65,7 @@ class TestDatabaseConnection:
 class TestCohortOperations:
     """Test cohort creation and querying."""
     
+    @skip_if_db_locked
     def test_create_and_query_cohort(self):
         """Should create and query a cohort."""
         manager = get_manager()
