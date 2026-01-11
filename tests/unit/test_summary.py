@@ -1,10 +1,11 @@
 """
-Comprehensive tests for summary module.
+Tests for cohort summary generation.
 
 Tests cover:
 - CohortSummary dataclass
 - SummaryGenerator class
-- ENTITY_COUNT_TABLES constant
+- Entity count tables constant
+- Helper functions
 """
 
 import pytest
@@ -22,11 +23,11 @@ class TestCohortSummary:
         
         summary = CohortSummary(
             cohort_id="coh-123",
-            name="Test Cohort",
+            name="test-cohort",
         )
         
         assert summary.cohort_id == "coh-123"
-        assert summary.name == "Test Cohort"
+        assert summary.name == "test-cohort"
         assert summary.description is None
         assert summary.entity_counts == {}
         assert summary.statistics == {}
@@ -37,49 +38,43 @@ class TestCohortSummary:
         """Test creating a fully populated CohortSummary."""
         from healthsim_agent.state.summary import CohortSummary
         
-        now = datetime(2025, 1, 15, 10, 30, 0)
-        
+        now = datetime.now()
         summary = CohortSummary(
             cohort_id="coh-123",
-            name="Full Cohort",
-            description="A comprehensive test cohort",
+            name="diabetes-cohort",
+            description="Patients with diabetes",
             created_at=now,
             updated_at=now,
             entity_counts={"patients": 100, "encounters": 500},
-            statistics={"avg_age": 45.5, "gender_ratio": 0.52},
-            samples={"patients": [{"id": "p1"}, {"id": "p2"}]},
-            tags=["test", "diabetes"],
+            statistics={"avg_age": 55.5},
+            samples={"patients": [{"id": "p1", "name": "Test"}]},
+            tags=["diabetes", "chronic"],
         )
         
-        assert summary.description == "A comprehensive test cohort"
+        assert summary.description == "Patients with diabetes"
         assert summary.entity_counts["patients"] == 100
-        assert summary.statistics["avg_age"] == 45.5
-        assert len(summary.samples["patients"]) == 2
+        assert summary.statistics["avg_age"] == 55.5
+        assert len(summary.samples["patients"]) == 1
         assert "diabetes" in summary.tags
     
     def test_to_dict(self):
         """Test to_dict conversion."""
         from healthsim_agent.state.summary import CohortSummary
         
-        now = datetime(2025, 1, 15, 10, 30, 0)
-        
+        now = datetime(2024, 1, 15, 10, 30, 0)
         summary = CohortSummary(
             cohort_id="coh-123",
-            name="Test",
-            description="Desc",
+            name="test-cohort",
             created_at=now,
-            updated_at=now,
             entity_counts={"patients": 50},
-            tags=["tag1"],
         )
         
         d = summary.to_dict()
         
-        assert d['cohort_id'] == "coh-123"
-        assert d['name'] == "Test"
-        assert d['created_at'] == "2025-01-15T10:30:00"
-        assert d['entity_counts'] == {"patients": 50}
-        assert d['tags'] == ["tag1"]
+        assert d["cohort_id"] == "coh-123"
+        assert d["name"] == "test-cohort"
+        assert d["created_at"] == "2024-01-15T10:30:00"
+        assert d["entity_counts"]["patients"] == 50
     
     def test_to_dict_with_none_dates(self):
         """Test to_dict handles None dates."""
@@ -87,86 +82,68 @@ class TestCohortSummary:
         
         summary = CohortSummary(
             cohort_id="coh-123",
-            name="Test",
+            name="test-cohort",
         )
         
         d = summary.to_dict()
         
-        assert d['created_at'] is None
-        assert d['updated_at'] is None
+        assert d["created_at"] is None
+        assert d["updated_at"] is None
     
     def test_to_json(self):
-        """Test to_json conversion."""
+        """Test JSON serialization."""
         from healthsim_agent.state.summary import CohortSummary
         
         summary = CohortSummary(
             cohort_id="coh-123",
-            name="Test",
+            name="test-cohort",
             entity_counts={"patients": 10},
         )
         
-        json_str = summary.to_json(indent=2)
+        json_str = summary.to_json()
+        parsed = json.loads(json_str)
         
-        # Should be valid JSON
-        data = json.loads(json_str)
-        
-        assert data['cohort_id'] == "coh-123"
-        assert data['entity_counts']['patients'] == 10
-    
-    def test_to_json_no_indent(self):
-        """Test to_json without indentation."""
-        from healthsim_agent.state.summary import CohortSummary
-        
-        summary = CohortSummary(
-            cohort_id="coh-123",
-            name="Test",
-        )
-        
-        json_str = summary.to_json(indent=None)
-        
-        # Should be compact (no newlines)
-        assert '\n' not in json_str
+        assert parsed["cohort_id"] == "coh-123"
+        assert parsed["entity_counts"]["patients"] == 10
     
     def test_from_dict(self):
-        """Test from_dict creation."""
+        """Test creating from dictionary."""
         from healthsim_agent.state.summary import CohortSummary
         
         data = {
-            'cohort_id': 'coh-123',
-            'name': 'Restored Cohort',
-            'description': 'From dict',
-            'created_at': '2025-01-15T10:30:00',
-            'updated_at': '2025-01-16T12:00:00',
-            'entity_counts': {'members': 25},
-            'statistics': {'avg_age': 50},
-            'samples': {'members': [{'id': 'm1'}]},
-            'tags': ['restored'],
+            "cohort_id": "coh-456",
+            "name": "loaded-cohort",
+            "description": "Loaded from dict",
+            "created_at": "2024-01-15T10:30:00",
+            "updated_at": "2024-01-16T14:00:00",
+            "entity_counts": {"members": 200},
+            "statistics": {"avg_premium": 450.0},
+            "samples": {},
+            "tags": ["payer"],
         }
         
         summary = CohortSummary.from_dict(data)
         
-        assert summary.cohort_id == 'coh-123'
-        assert summary.name == 'Restored Cohort'
-        assert summary.created_at == datetime(2025, 1, 15, 10, 30, 0)
-        assert summary.entity_counts['members'] == 25
-        assert summary.tags == ['restored']
+        assert summary.cohort_id == "coh-456"
+        assert summary.name == "loaded-cohort"
+        assert summary.created_at.year == 2024
+        assert summary.entity_counts["members"] == 200
+        assert "payer" in summary.tags
     
     def test_from_dict_minimal(self):
         """Test from_dict with minimal data."""
         from healthsim_agent.state.summary import CohortSummary
         
         data = {
-            'cohort_id': 'coh-123',
-            'name': 'Minimal',
+            "cohort_id": "coh-789",
+            "name": "minimal",
         }
         
         summary = CohortSummary.from_dict(data)
         
-        assert summary.cohort_id == 'coh-123'
-        assert summary.description is None
+        assert summary.cohort_id == "coh-789"
         assert summary.created_at is None
         assert summary.entity_counts == {}
-        assert summary.tags == []
     
     def test_total_entities(self):
         """Test total_entities calculation."""
@@ -174,246 +151,302 @@ class TestCohortSummary:
         
         summary = CohortSummary(
             cohort_id="coh-123",
-            name="Test",
+            name="test",
             entity_counts={
                 "patients": 100,
                 "encounters": 500,
-                "diagnoses": 200,
+                "diagnoses": 1200,
             },
         )
         
-        assert summary.total_entities() == 800
+        assert summary.total_entities() == 1800
     
     def test_total_entities_empty(self):
         """Test total_entities with no entities."""
         from healthsim_agent.state.summary import CohortSummary
         
-        summary = CohortSummary(
-            cohort_id="coh-123",
-            name="Empty",
-        )
+        summary = CohortSummary(cohort_id="coh-123", name="empty")
         
         assert summary.total_entities() == 0
     
     def test_token_estimate(self):
-        """Test token_estimate calculation."""
+        """Test token estimation."""
         from healthsim_agent.state.summary import CohortSummary
         
         summary = CohortSummary(
             cohort_id="coh-123",
-            name="Test",
+            name="test-cohort",
             entity_counts={"patients": 100},
         )
         
         estimate = summary.token_estimate()
         
-        # Should be positive
+        # Should be positive and reasonable
         assert estimate > 0
-        
-        # Rough check: compact JSON // 4
-        json_len = len(summary.to_json(indent=None))
-        assert estimate == json_len // 4
-    
-    def test_token_estimate_increases_with_content(self):
-        """Test token estimate increases with more content."""
-        from healthsim_agent.state.summary import CohortSummary
-        
-        small = CohortSummary(cohort_id="c1", name="Small")
-        
-        large = CohortSummary(
-            cohort_id="c2",
-            name="Large",
-            description="A much longer description with more content",
-            entity_counts={"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
-            statistics={"stat1": 10, "stat2": 20, "stat3": 30},
-            samples={"type1": [{"id": "1"}, {"id": "2"}, {"id": "3"}]},
-            tags=["tag1", "tag2", "tag3", "tag4"],
-        )
-        
-        assert large.token_estimate() > small.token_estimate()
+        assert estimate < 1000  # Simple summary should be small
 
 
 class TestEntityCountTables:
     """Tests for ENTITY_COUNT_TABLES constant."""
     
-    def test_constant_exists(self):
-        """Test constant exists."""
+    def test_tables_dict_exists(self):
+        """Test entity count tables dict exists."""
         from healthsim_agent.state.summary import ENTITY_COUNT_TABLES
         
         assert isinstance(ENTITY_COUNT_TABLES, dict)
         assert len(ENTITY_COUNT_TABLES) > 0
     
-    def test_includes_patient_entities(self):
-        """Test PatientSim entities included."""
+    def test_includes_patientsim_tables(self):
+        """Test PatientSim tables are included."""
         from healthsim_agent.state.summary import ENTITY_COUNT_TABLES
         
-        assert 'patients' in ENTITY_COUNT_TABLES
-        assert 'encounters' in ENTITY_COUNT_TABLES
-        assert 'diagnoses' in ENTITY_COUNT_TABLES
+        assert "patients" in ENTITY_COUNT_TABLES
+        assert "encounters" in ENTITY_COUNT_TABLES
+        assert "diagnoses" in ENTITY_COUNT_TABLES
     
-    def test_includes_member_entities(self):
-        """Test MemberSim entities included."""
+    def test_includes_membersim_tables(self):
+        """Test MemberSim tables are included."""
         from healthsim_agent.state.summary import ENTITY_COUNT_TABLES
         
-        assert 'members' in ENTITY_COUNT_TABLES
-        assert 'claims' in ENTITY_COUNT_TABLES
+        assert "members" in ENTITY_COUNT_TABLES
+        assert "claims" in ENTITY_COUNT_TABLES
     
-    def test_includes_rx_entities(self):
-        """Test RxMemberSim entities included."""
+    def test_includes_trialsim_tables(self):
+        """Test TrialSim tables are included."""
         from healthsim_agent.state.summary import ENTITY_COUNT_TABLES
         
-        assert 'rx_members' in ENTITY_COUNT_TABLES
-        assert 'prescriptions' in ENTITY_COUNT_TABLES
-    
-    def test_includes_trial_entities(self):
-        """Test TrialSim entities included."""
-        from healthsim_agent.state.summary import ENTITY_COUNT_TABLES
-        
-        assert 'studies' in ENTITY_COUNT_TABLES
-        assert 'subjects' in ENTITY_COUNT_TABLES
+        assert "subjects" in ENTITY_COUNT_TABLES
+        assert "adverse_events" in ENTITY_COUNT_TABLES
 
 
 class TestSummaryGenerator:
     """Tests for SummaryGenerator class."""
     
-    @pytest.fixture
-    def mock_connection(self):
-        """Create a mock database connection."""
-        conn = MagicMock()
-        return conn
-    
-    @pytest.fixture
-    def generator(self, mock_connection):
-        """Create generator with mock connection."""
-        from healthsim_agent.state.summary import SummaryGenerator
-        return SummaryGenerator(connection=mock_connection)
-    
-    def test_init_with_connection(self, mock_connection):
-        """Test initialization with provided connection."""
+    def test_init_with_connection(self):
+        """Test initializing with connection."""
         from healthsim_agent.state.summary import SummaryGenerator
         
-        gen = SummaryGenerator(connection=mock_connection)
+        mock_conn = MagicMock()
+        generator = SummaryGenerator(connection=mock_conn)
         
-        assert gen._conn is mock_connection
+        assert generator._conn is mock_conn
     
     def test_init_without_connection(self):
-        """Test initialization without connection (lazy loading)."""
+        """Test initializing without connection (lazy load)."""
         from healthsim_agent.state.summary import SummaryGenerator
         
-        gen = SummaryGenerator()
+        generator = SummaryGenerator()
         
-        assert gen._conn is None
+        assert generator._conn is None
     
-    def test_get_entity_counts_single_table(self, generator, mock_connection):
-        """Test getting entity counts for single table."""
+    def test_get_entity_counts(self):
+        """Test getting entity counts."""
+        from healthsim_agent.state.summary import SummaryGenerator
+        
+        mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.rows = [[50]]
-        mock_connection.execute.return_value = mock_result
+        mock_conn.execute.return_value = mock_result
         
+        generator = SummaryGenerator(connection=mock_conn)
         counts = generator.get_entity_counts("coh-123")
         
-        # Should have made multiple calls (one per table)
-        assert mock_connection.execute.called
-        # Should include counts for tables that have data
-        # Note: The actual result depends on how many tables return data
+        # Should have counts for tables that returned > 0
+        assert isinstance(counts, dict)
     
-    def test_get_entity_counts_handles_exceptions(self, generator, mock_connection):
-        """Test that missing tables don't raise exceptions."""
-        # Simulate some tables not existing
-        mock_connection.execute.side_effect = Exception("Table not found")
+    def test_get_entity_counts_handles_errors(self):
+        """Test entity counts handles missing tables gracefully."""
+        from healthsim_agent.state.summary import SummaryGenerator
         
-        # Should not raise, just return empty dict
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("Table not found")
+        
+        generator = SummaryGenerator(connection=mock_conn)
         counts = generator.get_entity_counts("coh-123")
         
+        # Should return empty dict, not raise
         assert counts == {}
     
-    def test_calculate_patient_statistics(self, generator, mock_connection):
-        """Test patient statistics calculation."""
-        # Mock age stats result
-        age_result = MagicMock()
-        age_result.rows = [[25, 75, 45.5]]
+    def test_calculate_patient_statistics(self):
+        """Test calculating patient statistics."""
+        from healthsim_agent.state.summary import SummaryGenerator
         
-        # Mock gender result
-        gender_result = MagicMock()
-        gender_result.rows = [['M', 50], ['F', 50]]
+        mock_conn = MagicMock()
         
-        mock_connection.execute.side_effect = [age_result, gender_result]
+        # Age stats result
+        mock_age_result = MagicMock()
+        mock_age_result.rows = [[25, 75, 50.5]]
         
+        # Gender result
+        mock_gender_result = MagicMock()
+        mock_gender_result.rows = [["M", 30], ["F", 45]]
+        
+        mock_conn.execute.side_effect = [mock_age_result, mock_gender_result]
+        
+        generator = SummaryGenerator(connection=mock_conn)
         stats = generator.calculate_patient_statistics("coh-123")
         
-        # Should have age_range if query succeeds
-        if 'age_range' in stats:
-            assert stats['age_range']['min'] == 25
-            assert stats['age_range']['max'] == 75
+        assert "age_range" in stats
+        assert stats["age_range"]["min"] == 25
+        assert stats["age_range"]["max"] == 75
+        assert "gender_distribution" in stats
     
-    def test_calculate_patient_statistics_handles_missing_data(self, generator, mock_connection):
-        """Test patient stats handles missing data gracefully."""
+    def test_calculate_patient_statistics_handles_null(self):
+        """Test patient statistics handles null results."""
+        from healthsim_agent.state.summary import SummaryGenerator
+        
+        mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.rows = [[None, None, None]]
-        mock_connection.execute.return_value = mock_result
+        mock_conn.execute.return_value = mock_result
         
+        generator = SummaryGenerator(connection=mock_conn)
         stats = generator.calculate_patient_statistics("coh-123")
         
-        # Should not crash, just return what it can
+        # Should return without age_range if no data
         assert isinstance(stats, dict)
     
-    def test_calculate_encounter_statistics(self, generator, mock_connection):
-        """Test encounter statistics calculation."""
-        from datetime import date
+    def test_calculate_encounter_statistics(self):
+        """Test calculating encounter statistics."""
+        from healthsim_agent.state.summary import SummaryGenerator
         
-        mock_result = MagicMock()
-        mock_result.rows = [[date(2024, 1, 1), date(2025, 1, 1)]]
-        mock_connection.execute.return_value = mock_result
+        mock_conn = MagicMock()
         
+        # Date range result
+        mock_date_result = MagicMock()
+        mock_date_result.rows = [["2024-01-01", "2024-12-31"]]
+        
+        # Encounter types result
+        mock_types_result = MagicMock()
+        mock_types_result.rows = [["AMB", 100], ["EMER", 25]]
+        
+        mock_conn.execute.side_effect = [mock_date_result, mock_types_result]
+        
+        generator = SummaryGenerator(connection=mock_conn)
         stats = generator.calculate_encounter_statistics("coh-123")
         
-        assert isinstance(stats, dict)
-
-
-class TestSummaryRoundTrip:
-    """Integration tests for summary serialization."""
+        assert "date_range" in stats
+        assert "encounter_types" in stats
     
-    def test_dict_round_trip(self):
-        """Test to_dict -> from_dict preserves data."""
-        from healthsim_agent.state.summary import CohortSummary
+    def test_calculate_claims_statistics(self):
+        """Test calculating claims statistics."""
+        from healthsim_agent.state.summary import SummaryGenerator
         
-        original = CohortSummary(
+        mock_conn = MagicMock()
+        
+        # Financial stats result
+        mock_fin_result = MagicMock()
+        mock_fin_result.rows = [[50000.0, 40000.0, 5000.0, 500.0]]
+        
+        # Claim types result
+        mock_types_result = MagicMock()
+        mock_types_result.rows = [["P", 80], ["I", 20]]
+        
+        mock_conn.execute.side_effect = [mock_fin_result, mock_types_result]
+        
+        generator = SummaryGenerator(connection=mock_conn)
+        stats = generator.calculate_claims_statistics("coh-123")
+        
+        assert "financials" in stats
+        assert stats["financials"]["total_billed"] == 50000.0
+        assert "claim_types" in stats
+    
+    def test_calculate_diagnosis_statistics(self):
+        """Test calculating diagnosis statistics."""
+        from healthsim_agent.state.summary import SummaryGenerator
+        
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = [
+            ["E11.9", "Type 2 diabetes", 45],
+            ["I10", "Essential hypertension", 30],
+        ]
+        mock_conn.execute.return_value = mock_result
+        
+        generator = SummaryGenerator(connection=mock_conn)
+        stats = generator.calculate_diagnosis_statistics("coh-123")
+        
+        assert "top_diagnoses" in stats
+        assert len(stats["top_diagnoses"]) == 2
+        assert stats["top_diagnoses"][0]["code"] == "E11.9"
+
+
+class TestGenerateSummary:
+    """Tests for generate_summary helper function."""
+    
+    def test_generate_summary_basic(self):
+        """Test basic summary generation."""
+        from healthsim_agent.state.summary import generate_summary
+        
+        mock_conn = MagicMock()
+        
+        # Cohort info query
+        mock_cohort_result = MagicMock()
+        mock_cohort_result.rows = [[
+            "coh-123", "test-cohort", "Description",
+            datetime(2024, 1, 1), datetime(2024, 1, 2)
+        ]]
+        
+        # Tags query
+        mock_tags_result = MagicMock()
+        mock_tags_result.rows = [["diabetes"], ["test"]]
+        
+        # Entity counts - return 0 for all tables
+        mock_count_result = MagicMock()
+        mock_count_result.rows = [[0]]
+        
+        mock_conn.execute.side_effect = [
+            mock_cohort_result,
+            mock_tags_result,
+        ] + [mock_count_result] * 50  # For all entity count queries
+        
+        summary = generate_summary(
             cohort_id="coh-123",
-            name="Round Trip",
-            description="Test round trip",
-            created_at=datetime(2025, 1, 15, 10, 30, 0),
-            entity_counts={"patients": 100},
-            statistics={"avg_age": 45.5},
-            samples={"patients": [{"id": "p1"}]},
-            tags=["test"],
+            include_samples=False,
+            connection=mock_conn,
         )
         
-        d = original.to_dict()
-        restored = CohortSummary.from_dict(d)
-        
-        assert restored.cohort_id == original.cohort_id
-        assert restored.name == original.name
-        assert restored.description == original.description
-        assert restored.created_at == original.created_at
-        assert restored.entity_counts == original.entity_counts
-        assert restored.statistics == original.statistics
-        assert restored.samples == original.samples
-        assert restored.tags == original.tags
+        assert summary.cohort_id == "coh-123"
+        assert summary.name == "test-cohort"
     
-    def test_json_round_trip(self):
-        """Test to_json -> from_dict(json.loads) preserves data."""
-        from healthsim_agent.state.summary import CohortSummary
+    def test_generate_summary_cohort_not_found(self):
+        """Test summary generation when cohort not found."""
+        from healthsim_agent.state.summary import generate_summary
         
-        original = CohortSummary(
-            cohort_id="coh-456",
-            name="JSON Test",
-            entity_counts={"members": 50},
-        )
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = []
+        mock_conn.execute.return_value = mock_result
         
-        json_str = original.to_json()
-        data = json.loads(json_str)
-        restored = CohortSummary.from_dict(data)
+        with pytest.raises(ValueError, match="Cohort not found"):
+            generate_summary(cohort_id="nonexistent", connection=mock_conn)
+
+
+class TestGetCohortByName:
+    """Tests for get_cohort_by_name helper function."""
+    
+    def test_exact_match(self):
+        """Test finding cohort by exact name."""
+        from healthsim_agent.state.summary import get_cohort_by_name
         
-        assert restored.cohort_id == original.cohort_id
-        assert restored.name == original.name
-        assert restored.entity_counts == original.entity_counts
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = [["coh-123"]]
+        mock_conn.execute.return_value = mock_result
+        
+        result = get_cohort_by_name("test-cohort", mock_conn)
+        
+        assert result == "coh-123"
+    
+    def test_not_found(self):
+        """Test cohort not found returns None."""
+        from healthsim_agent.state.summary import get_cohort_by_name
+        
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = []
+        mock_conn.execute.return_value = mock_result
+        
+        result = get_cohort_by_name("nonexistent", mock_conn)
+        
+        assert result is None

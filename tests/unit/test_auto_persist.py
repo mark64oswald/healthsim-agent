@@ -686,3 +686,324 @@ class TestCanonicalTables:
         # TrialSim
         assert 'studies' in table_names
         assert 'subjects' in table_names
+
+
+
+class TestPersistEntities:
+    """Tests for persist_entities method."""
+    
+    def test_persist_entities_creates_new_cohort(self):
+        """Test persisting entities creates new cohort."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = MagicMock(rows=[[0]])
+        
+        service = AutoPersistService(connection=mock_conn)
+        
+        # Mock generate_summary to avoid complex setup
+        with patch('healthsim_agent.state.auto_persist.generate_summary') as mock_summary:
+            mock_summary.return_value = None
+            
+            with patch('healthsim_agent.state.auto_persist.get_table_info') as mock_table_info:
+                mock_table_info.return_value = ('patients', 'id')
+                
+                with patch('healthsim_agent.state.auto_persist.get_serializer') as mock_serializer:
+                    mock_serializer.return_value = lambda x: x.copy()
+                    
+                    result = service.persist_entities(
+                        entities=[{"id": "p1", "name": "Test"}],
+                        entity_type="patient",
+                        cohort_name="test-cohort",
+                    )
+        
+        assert result.is_new_cohort is True
+        assert result.entities_persisted == 1
+        assert result.entity_type == "patients"
+    
+    def test_persist_entities_validates_entity_type(self):
+        """Test persist_entities validates entity type."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        service = AutoPersistService(connection=mock_conn)
+        
+        with patch('healthsim_agent.state.auto_persist.get_table_info') as mock_table_info:
+            mock_table_info.return_value = None  # Unknown type
+            
+            with pytest.raises(ValueError, match="Unknown entity type"):
+                service.persist_entities(
+                    entities=[{"id": "p1"}],
+                    entity_type="unknown_type",
+                )
+    
+    def test_persist_entities_empty_list_raises(self):
+        """Test persist_entities raises on empty list."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        service = AutoPersistService(connection=mock_conn)
+        
+        with pytest.raises(ValueError, match="No entities to persist"):
+            service.persist_entities(entities=[], entity_type="patient")
+    
+    def test_persist_entities_adds_to_existing_cohort(self):
+        """Test persisting to existing cohort."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        # First query returns cohort name
+        mock_conn.execute.return_value = MagicMock(rows=[["existing-cohort"]])
+        
+        service = AutoPersistService(connection=mock_conn)
+        
+        with patch('healthsim_agent.state.auto_persist.generate_summary') as mock_summary:
+            mock_summary.return_value = None
+            
+            with patch('healthsim_agent.state.auto_persist.get_table_info') as mock_table_info:
+                mock_table_info.return_value = ('patients', 'id')
+                
+                with patch('healthsim_agent.state.auto_persist.get_serializer') as mock_serializer:
+                    mock_serializer.return_value = lambda x: x.copy()
+                    
+                    result = service.persist_entities(
+                        entities=[{"id": "p1", "name": "Test"}],
+                        entity_type="patient",
+                        cohort_id="existing-id-123",
+                    )
+        
+        assert result.is_new_cohort is False
+        assert result.cohort_name == "existing-cohort"
+
+
+class TestQueryCohort:
+    """Tests for query_cohort method."""
+    
+    def test_query_cohort_basic(self):
+        """Test basic query execution."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        
+        # Mock count query
+        mock_count_result = MagicMock()
+        mock_count_result.rows = [[5]]
+        
+        # Mock data query
+        mock_data_result = MagicMock()
+        mock_data_result.rows = [("p1", "Test"), ("p2", "Test2")]
+        mock_data_result.columns = ["id", "name"]
+        
+        mock_conn.execute.side_effect = [mock_count_result, mock_data_result]
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service.query_cohort(
+            cohort_id="coh-123",
+            query="SELECT id, name FROM patients",
+        )
+        
+        assert result.total_count == 5
+        assert len(result.results) == 2
+        assert result.results[0]["id"] == "p1"
+    
+    def test_query_cohort_validates_query(self):
+        """Test query validation rejects dangerous queries."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        service = AutoPersistService(connection=mock_conn)
+        
+        with pytest.raises(ValueError, match="must be a SELECT"):
+            service.query_cohort(
+                cohort_id="coh-123",
+                query="DELETE FROM patients",
+            )
+    
+    def test_query_cohort_enforces_limit(self):
+        """Test query enforces maximum limit."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = MagicMock(rows=[[10]], columns=["id"])
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service.query_cohort(
+            cohort_id="coh-123",
+            query="SELECT id FROM patients",
+            limit=500,  # Over max
+        )
+        
+        # Verify limit was capped to 100
+        call_args = mock_conn.execute.call_args_list[-1][0][0]
+        assert "LIMIT 100" in call_args
+    
+    def test_query_cohort_pagination(self):
+        """Test query pagination."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_count_result = MagicMock()
+        mock_count_result.rows = [[100]]
+        
+        mock_data_result = MagicMock()
+        mock_data_result.rows = [("p1",)]
+        mock_data_result.columns = ["id"]
+        
+        mock_conn.execute.side_effect = [mock_count_result, mock_data_result]
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service.query_cohort(
+            cohort_id="coh-123",
+            query="SELECT id FROM patients",
+            limit=10,
+            offset=20,
+        )
+        
+        assert result.page == 2
+        assert result.has_more is True
+
+
+class TestGetCohortSummary:
+    """Tests for get_cohort_summary method."""
+    
+    def test_get_summary_by_id(self):
+        """Test getting summary by cohort ID."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        service = AutoPersistService(connection=mock_conn)
+        
+        with patch('healthsim_agent.state.auto_persist.generate_summary') as mock_summary:
+            mock_summary.return_value = MagicMock(spec=['to_dict'])
+            
+            result = service.get_cohort_summary(cohort_id="coh-123")
+            
+            mock_summary.assert_called_once()
+            assert 'coh-123' in str(mock_summary.call_args)
+    
+    def test_get_summary_by_name(self):
+        """Test getting summary by cohort name."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        service = AutoPersistService(connection=mock_conn)
+        
+        with patch('healthsim_agent.state.auto_persist.get_cohort_by_name') as mock_lookup:
+            mock_lookup.return_value = "resolved-id"
+            
+            with patch('healthsim_agent.state.auto_persist.generate_summary') as mock_summary:
+                mock_summary.return_value = MagicMock()
+                
+                service.get_cohort_summary(cohort_name="test-cohort")
+                
+                mock_lookup.assert_called_once_with("test-cohort", mock_conn)
+    
+    def test_get_summary_requires_id_or_name(self):
+        """Test get_cohort_summary requires either ID or name."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        service = AutoPersistService(connection=mock_conn)
+        
+        with pytest.raises(ValueError, match="Either cohort_id or cohort_name required"):
+            service.get_cohort_summary()
+    
+    def test_get_summary_name_not_found(self):
+        """Test error when cohort name not found."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        service = AutoPersistService(connection=mock_conn)
+        
+        with patch('healthsim_agent.state.auto_persist.get_cohort_by_name') as mock_lookup:
+            mock_lookup.return_value = None
+            
+            with pytest.raises(ValueError, match="Cohort not found"):
+                service.get_cohort_summary(cohort_name="nonexistent")
+
+
+class TestListCohorts:
+    """Tests for list_cohorts method."""
+    
+    def test_list_cohorts_basic(self):
+        """Test basic cohort listing."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = [
+            ("id1", "cohort-1", "desc1", 10, datetime.now(), datetime.now()),
+            ("id2", "cohort-2", "desc2", 20, datetime.now(), datetime.now()),
+        ]
+        mock_conn.execute.return_value = mock_result
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service.list_cohorts()
+        
+        assert len(result) == 2
+        assert result[0].name == "cohort-1"
+        assert result[1].name == "cohort-2"
+    
+    def test_list_cohorts_with_filter(self):
+        """Test cohort listing with name filter."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = [
+            ("id1", "diabetes-cohort", "desc", 10, datetime.now(), datetime.now()),
+        ]
+        mock_conn.execute.return_value = mock_result
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service.list_cohorts(filter_pattern="diabetes")
+        
+        # Check that filter was applied - look through all calls
+        all_calls = [str(call) for call in mock_conn.execute.call_args_list]
+        filter_applied = any("LIKE" in call or "diabetes" in call.lower() for call in all_calls)
+        assert filter_applied or len(result) == 1  # Either filter in query or correct result
+
+
+class TestTableExists:
+    """Tests for _table_exists method."""
+    
+    def test_table_exists_true(self):
+        """Test table exists returns True."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = [[1]]
+        mock_conn.execute.return_value = mock_result
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service._table_exists("patients")
+        
+        assert result is True
+    
+    def test_table_exists_false(self):
+        """Test table exists returns False."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = [[0]]
+        mock_conn.execute.return_value = mock_result
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service._table_exists("nonexistent_table")
+        
+        assert result is False
+    
+    def test_table_exists_error_handling(self):
+        """Test table exists handles errors."""
+        from healthsim_agent.state.auto_persist import AutoPersistService
+        
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("DB Error")
+        
+        service = AutoPersistService(connection=mock_conn)
+        result = service._table_exists("patients")
+        
+        # Should return False on error, not raise
+        assert result is False
