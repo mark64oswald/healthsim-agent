@@ -185,6 +185,23 @@ CREATE TABLE IF NOT EXISTS lab_results (
 );
 """
 
+VITAL_SIGNS_DDL = f"""
+CREATE TABLE IF NOT EXISTS vital_signs (
+    id              VARCHAR PRIMARY KEY,
+    vital_type      VARCHAR NOT NULL,
+    loinc_code      VARCHAR,
+    value           VARCHAR NOT NULL,
+    unit            VARCHAR,
+    patient_mrn     VARCHAR NOT NULL,
+    encounter_id    VARCHAR,
+    recorded_time   TIMESTAMP NOT NULL,
+    position        VARCHAR,
+    method          VARCHAR,
+    device          VARCHAR,
+    {PROVENANCE_COLUMNS}
+);
+"""
+
 # ============================================================================
 # CANONICAL TABLES - MemberSim
 # ============================================================================
@@ -377,6 +394,11 @@ CREATE INDEX IF NOT EXISTS idx_patients_cohort ON patients(cohort_id);
 CREATE INDEX IF NOT EXISTS idx_encounters_patient ON encounters(patient_mrn);
 CREATE INDEX IF NOT EXISTS idx_encounters_cohort ON encounters(cohort_id);
 
+-- Clinical observation lookups
+CREATE INDEX IF NOT EXISTS idx_vital_signs_patient ON vital_signs(patient_mrn);
+CREATE INDEX IF NOT EXISTS idx_vital_signs_encounter ON vital_signs(encounter_id);
+CREATE INDEX IF NOT EXISTS idx_vital_signs_cohort ON vital_signs(cohort_id);
+
 -- Member lookups
 CREATE INDEX IF NOT EXISTS idx_members_ssn ON members(ssn);
 CREATE INDEX IF NOT EXISTS idx_members_cohort ON members(cohort_id);
@@ -411,6 +433,7 @@ ALL_DDL = [
     DIAGNOSES_DDL,
     MEDICATIONS_DDL,
     LAB_RESULTS_DDL,
+    VITAL_SIGNS_DDL,
     MEMBERS_DDL,
     CLAIMS_DDL,
     CLAIM_LINES_DDL,
@@ -425,7 +448,7 @@ ALL_DDL = [
 def get_canonical_tables() -> List[str]:
     """Get list of canonical table names."""
     return [
-        'patients', 'encounters', 'diagnoses', 'medications', 'lab_results',
+        'patients', 'encounters', 'diagnoses', 'medications', 'lab_results', 'vital_signs',
         'members', 'claims', 'claim_lines',
         'prescriptions', 'pharmacy_claims',
         'subjects', 'adverse_events'

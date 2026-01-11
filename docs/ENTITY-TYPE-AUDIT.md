@@ -14,6 +14,7 @@
 | diagnoses | ✅ | ✅ + aliases | ✅ + aliases | ✅ + aliases | ✅ Complete |
 | medications | ✅ | ✅ + aliases | ✅ + aliases | ✅ + aliases | ✅ Complete |
 | lab_results | ✅ | ✅ + aliases | ✅ + aliases | ✅ + aliases | ✅ Complete |
+| vital_signs | ✅ (NEW) | ✅ + aliases (NEW) | ✅ (NEW) | ✅ (NEW) | ✅ Complete |
 | **MemberSim** |
 | members | ✅ | ✅ + aliases | ✅ + aliases | ✅ + aliases | ✅ Complete |
 | claims | ✅ | ✅ | ✅ | ✅ | ✅ Complete |
@@ -47,6 +48,7 @@
 | condition, conditions | diagnoses | PatientSim |
 | lab, labs, test, tests | lab_results | PatientSim |
 | drug, drugs | medications | PatientSim |
+| vital, vitals | vital_signs | PatientSim |
 | subscriber, subscribers | members | MemberSim |
 | dependent, dependents | members | MemberSim |
 | coverage, coverages | members | MemberSim |
@@ -64,6 +66,9 @@
 
 - `src/healthsim_agent/tools/base.py` - SCENARIO_ENTITY_TYPES (expanded with aliases)
 - `src/healthsim_agent/state/serializers.py`:
-  - Added serialize_claim_line, serialize_pharmacy_claim, serialize_adverse_event
+  - Added serialize_claim_line, serialize_pharmacy_claim, serialize_adverse_event, serialize_vital_sign
   - Expanded SERIALIZERS registry with all aliases
   - Expanded ENTITY_TABLE_MAP with all aliases
+- `src/healthsim_agent/db/schema.py`:
+  - Added VITAL_SIGNS_DDL table definition
+  - Updated ALL_DDL and get_canonical_tables()

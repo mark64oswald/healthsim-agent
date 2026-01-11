@@ -26,6 +26,7 @@ SCENARIO_ENTITY_TYPES: Set[str] = {
     "diagnoses", "conditions",  # conditions → diagnoses
     "medications", "drugs",  # drugs → medications
     "lab_results", "labs", "tests",  # labs/tests → lab_results
+    "vital_signs", "vitals",  # vitals → vital_signs
     
     # MemberSim - Core
     "members", "enrollments", "subscribers", "dependents", "coverages",  # All → members

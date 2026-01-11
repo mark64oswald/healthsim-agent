@@ -221,6 +221,30 @@ def serialize_lab_result(entity: dict[str, Any], provenance: dict | None = None)
     }
 
 
+def serialize_vital_sign(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
+    """Prepare a vital sign entity for database insertion."""
+    prov = provenance or entity.get('_provenance', {})
+    
+    return {
+        'id': entity.get('id') or str(uuid4()),
+        'vital_type': entity.get('vital_type') or entity.get('type') or entity.get('name'),
+        'loinc_code': entity.get('loinc_code') or entity.get('code'),
+        'value': entity.get('value'),
+        'unit': entity.get('unit'),
+        'patient_mrn': entity.get('patient_mrn') or entity.get('patient_id'),
+        'encounter_id': entity.get('encounter_id'),
+        'recorded_time': _parse_datetime(entity.get('recorded_time') or entity.get('datetime') or entity.get('timestamp')),
+        'position': entity.get('position'),  # e.g., sitting, standing, supine
+        'method': entity.get('method'),      # e.g., automated, manual
+        'device': entity.get('device'),      # e.g., cuff type, thermometer
+        'created_at': datetime.utcnow(),
+        'source_type': prov.get('source_type', 'generated'),
+        'source_system': prov.get('source_system', 'patientsim'),
+        'skill_used': prov.get('skill_used'),
+        'generation_seed': prov.get('seed'),
+    }
+
+
 def serialize_member(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
     """Prepare a member entity for database insertion."""
     prov = provenance or entity.get('_provenance', {})
@@ -434,6 +458,8 @@ SERIALIZERS = {
     'lab_result': serialize_lab_result, 'lab_results': serialize_lab_result,
     'lab': serialize_lab_result, 'labs': serialize_lab_result,  # Alias
     'test': serialize_lab_result, 'tests': serialize_lab_result,  # Alias
+    'vital_sign': serialize_vital_sign, 'vital_signs': serialize_vital_sign,
+    'vital': serialize_vital_sign, 'vitals': serialize_vital_sign,  # Alias
     
     # MemberSim
     'member': serialize_member, 'members': serialize_member,
@@ -475,6 +501,8 @@ ENTITY_TABLE_MAP = {
     'lab_result': ('lab_results', 'id'), 'lab_results': ('lab_results', 'id'),
     'lab': ('lab_results', 'id'), 'labs': ('lab_results', 'id'),
     'test': ('lab_results', 'id'), 'tests': ('lab_results', 'id'),
+    'vital_sign': ('vital_signs', 'id'), 'vital_signs': ('vital_signs', 'id'),
+    'vital': ('vital_signs', 'id'), 'vitals': ('vital_signs', 'id'),
     
     # MemberSim
     'member': ('members', 'id'), 'members': ('members', 'id'),

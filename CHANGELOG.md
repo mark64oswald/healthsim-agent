@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed - Missing vital_signs Support (January 11, 2026, Session 3 continued)
+- **Added vital_signs table** - LLM correctly generates vitals for ER encounters but no table existed
+  - Created VITAL_SIGNS_DDL with columns: vital_type, loinc_code, value, unit, position, method, device
+  - Added indexes for patient_mrn, encounter_id, cohort_id
+  - Added serialize_vital_sign serializer
+  - Added vitals/vital_signs aliases to all registries
+
 ### Fixed - Entity Type Normalization Bug (January 11, 2026, Session 3 continued)
 - **normalize_entity_type bug** - Fixed plural conversion for Greek/Latin medical terms:
   - `diagnosis` → `diagnoses` (was incorrectly treated as already plural because it ends in 's')
