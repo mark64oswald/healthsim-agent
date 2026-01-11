@@ -120,8 +120,8 @@ class RxMember(BaseModel):
         return self.accumulators.to_accumulator_set(self.member_id, year)
 
 
-class RxMemberFactory:
-    """Simple factory for creating pharmacy members without reproducibility."""
+class RxMemberGenerator:
+    """Generator for creating pharmacy benefit members."""
 
     def generate(
         self,
@@ -164,5 +164,5 @@ __all__ = [
     "MemberDemographics",
     "BenefitAccumulators",
     "RxMember",
-    "RxMemberFactory",
+    "RxMemberGenerator",
 ]

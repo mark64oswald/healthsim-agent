@@ -77,7 +77,7 @@ class TestFormatListing:
         result = list_output_formats()
         
         assert result.success is True
-        assert len(result.data) == 10  # 10 formats total
+        assert len(result.data) == 12  # 12 formats total
         
         # Verify all formats present
         formats = result.data
@@ -88,6 +88,8 @@ class TestFormatListing:
         assert "x12_837" in formats
         assert "x12_835" in formats
         assert "x12_834" in formats
+        assert "x12_270" in formats
+        assert "x12_271" in formats
         assert "ncpdp_d0" in formats
         assert "mimic_iii" in formats
         # CDISC formats

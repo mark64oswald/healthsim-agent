@@ -1,15 +1,25 @@
 """Core data models for TrialSim.
 
-Ported from: healthsim-workspace/packages/trialsim/src/trialsim/core/models.py
+Enhanced with clinical data models for comprehensive SDTM support:
+- VitalSign (VS domain)
+- LabResult (LB domain)
+- MedicalHistory (MH domain)
+- ConcomitantMedication (CM domain)
+- EligibilityCriteria (IE domain)
 """
 
 from datetime import date
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+
+# =============================================================================
+# Enumerations
+# =============================================================================
 
 class ArmType(str, Enum):
     """Treatment arm types."""
@@ -70,6 +80,26 @@ class AEOutcome(str, Enum):
     FATAL = "fatal"
     UNKNOWN = "unknown"
 
+
+class LabCategory(str, Enum):
+    """Laboratory test categories."""
+    HEMATOLOGY = "hematology"
+    CHEMISTRY = "chemistry"
+    URINALYSIS = "urinalysis"
+    COAGULATION = "coagulation"
+    IMMUNOLOGY = "immunology"
+    MICROBIOLOGY = "microbiology"
+
+
+class CriterionType(str, Enum):
+    """Eligibility criterion type."""
+    INCLUSION = "inclusion"
+    EXCLUSION = "exclusion"
+
+
+# =============================================================================
+# Core Models
+# =============================================================================
 
 class Site(BaseModel):
     """Clinical trial site."""
@@ -142,7 +172,7 @@ class Visit(BaseModel):
 
 
 class AdverseEvent(BaseModel):
-    """Adverse event record."""
+    """Adverse event record with MedDRA coding."""
     ae_id: str = Field(default_factory=lambda: f"AE-{uuid4().hex[:8].upper()}")
     subject_id: str
     protocol_id: str
@@ -150,6 +180,12 @@ class AdverseEvent(BaseModel):
     ae_term: str
     ae_description: str | None = None
     system_organ_class: str | None = None
+    
+    # MedDRA coding
+    meddra_pt_code: str | None = Field(None, description="MedDRA Preferred Term code")
+    meddra_pt_name: str | None = Field(None, description="MedDRA Preferred Term name")
+    meddra_soc_code: str | None = Field(None, description="MedDRA SOC code")
+    meddra_llt_code: str | None = Field(None, description="MedDRA LLT code")
 
     onset_date: date
     resolution_date: date | None = None
@@ -188,17 +224,165 @@ class Exposure(BaseModel):
     model_config = {"frozen": False}
 
 
+# =============================================================================
+# Clinical Data Models (NEW)
+# =============================================================================
+
+class VitalSign(BaseModel):
+    """Vital signs measurement (SDTM VS domain)."""
+    vs_id: str = Field(default_factory=lambda: f"VS-{uuid4().hex[:8].upper()}")
+    subject_id: str
+    protocol_id: str
+    visit_id: str | None = None
+    
+    # Test identification
+    vs_test: str = Field(..., description="Vital sign test name (e.g., SYSBP, DIABP)")
+    vs_test_name: str = Field(..., description="Full test name")
+    
+    # Result
+    vs_result: float = Field(..., description="Numeric result")
+    vs_unit: str = Field(..., description="Unit of measure")
+    vs_position: str | None = Field(None, description="Position (STANDING, SITTING, SUPINE)")
+    vs_location: str | None = Field(None, description="Location (LEFT ARM, RIGHT ARM)")
+    
+    # Date/time
+    collection_date: date = Field(..., description="Collection date")
+    collection_time: str | None = Field(None, description="Collection time HH:MM")
+    
+    model_config = {"frozen": False}
+
+
+class LabResult(BaseModel):
+    """Laboratory result (SDTM LB domain)."""
+    lb_id: str = Field(default_factory=lambda: f"LB-{uuid4().hex[:8].upper()}")
+    subject_id: str
+    protocol_id: str
+    visit_id: str | None = None
+    
+    # Test identification
+    lb_test: str = Field(..., description="Lab test code (e.g., ALT, AST, HGB)")
+    lb_test_name: str = Field(..., description="Full test name")
+    lb_category: LabCategory = Field(LabCategory.CHEMISTRY, description="Test category")
+    lb_spec: str = Field("BLOOD", description="Specimen type")
+    
+    # Result
+    lb_result: float | None = Field(None, description="Numeric result")
+    lb_result_c: str | None = Field(None, description="Character result")
+    lb_unit: str | None = Field(None, description="Unit of measure")
+    
+    # Reference range
+    lb_low: float | None = Field(None, description="Lower reference limit")
+    lb_high: float | None = Field(None, description="Upper reference limit")
+    lb_flag: str | None = Field(None, description="Flag (N=normal, L=low, H=high)")
+    
+    # Date/time
+    collection_date: date = Field(..., description="Collection date")
+    collection_time: str | None = Field(None, description="Collection time HH:MM")
+    
+    # LOINC coding
+    loinc_code: str | None = Field(None, description="LOINC code")
+    
+    model_config = {"frozen": False}
+
+
+class MedicalHistory(BaseModel):
+    """Medical history record (SDTM MH domain)."""
+    mh_id: str = Field(default_factory=lambda: f"MH-{uuid4().hex[:8].upper()}")
+    subject_id: str
+    protocol_id: str
+    
+    # Condition
+    mh_term: str = Field(..., description="Medical history term")
+    mh_category: str | None = Field(None, description="Category (e.g., CARDIOVASCULAR)")
+    
+    # MedDRA coding
+    meddra_pt_code: str | None = Field(None, description="MedDRA PT code")
+    meddra_soc: str | None = Field(None, description="System Organ Class")
+    
+    # Dates
+    start_date: date | None = Field(None, description="Condition start date")
+    end_date: date | None = Field(None, description="Condition end date")
+    is_ongoing: bool = Field(True, description="Is condition ongoing")
+    
+    # Status
+    is_preexisting: bool = Field(True, description="Existed prior to study")
+    
+    model_config = {"frozen": False}
+
+
+class ConcomitantMedication(BaseModel):
+    """Concomitant medication record (SDTM CM domain)."""
+    cm_id: str = Field(default_factory=lambda: f"CM-{uuid4().hex[:8].upper()}")
+    subject_id: str
+    protocol_id: str
+    
+    # Drug identification
+    cm_drug: str = Field(..., description="Drug name")
+    cm_class: str | None = Field(None, description="Drug class")
+    atc_code: str | None = Field(None, description="ATC code")
+    
+    # Dosing
+    dose: float | None = Field(None, description="Dose amount")
+    dose_unit: str | None = Field(None, description="Dose unit")
+    frequency: str | None = Field(None, description="Dosing frequency")
+    route: str | None = Field(None, description="Route of administration")
+    
+    # Indication
+    indication: str | None = Field(None, description="Indication for use")
+    
+    # Dates
+    start_date: date | None = Field(None, description="Start date")
+    end_date: date | None = Field(None, description="End date")
+    is_ongoing: bool = Field(True, description="Is medication ongoing")
+    
+    # Prior/concomitant
+    is_prior: bool = Field(False, description="Started before study")
+    
+    model_config = {"frozen": False}
+
+
+class EligibilityCriterion(BaseModel):
+    """Eligibility criterion assessment (SDTM IE domain)."""
+    ie_id: str = Field(default_factory=lambda: f"IE-{uuid4().hex[:8].upper()}")
+    subject_id: str
+    protocol_id: str
+    
+    # Criterion
+    criterion_id: str = Field(..., description="Criterion identifier (e.g., IN01, EX03)")
+    criterion_type: CriterionType = Field(..., description="Inclusion or exclusion")
+    criterion_text: str = Field(..., description="Criterion description")
+    
+    # Assessment
+    is_met: bool = Field(..., description="Was criterion met")
+    assessment_date: date = Field(..., description="Assessment date")
+    
+    # Comments
+    comment: str | None = Field(None, description="Comment if not met")
+    
+    model_config = {"frozen": False}
+
+
 __all__ = [
+    # Enums
     "ArmType",
     "SubjectStatus",
     "VisitType",
     "AESeverity",
     "AECausality",
     "AEOutcome",
+    "LabCategory",
+    "CriterionType",
+    # Core models
     "Site",
     "Protocol",
     "Subject",
     "Visit",
     "AdverseEvent",
     "Exposure",
+    # Clinical data models
+    "VitalSign",
+    "LabResult",
+    "MedicalHistory",
+    "ConcomitantMedication",
+    "EligibilityCriterion",
 ]

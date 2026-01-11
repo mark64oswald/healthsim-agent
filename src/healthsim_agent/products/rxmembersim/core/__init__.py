@@ -8,7 +8,7 @@ from healthsim_agent.products.rxmembersim.core.member import (
     BenefitAccumulators,
     MemberDemographics,
     RxMember,
-    RxMemberFactory,
+    RxMemberGenerator,
 )
 from healthsim_agent.products.rxmembersim.core.pharmacy import (
     Pharmacy,
@@ -34,7 +34,7 @@ __all__ = [
     "MemberDemographics",
     "BenefitAccumulators",
     "RxMember",
-    "RxMemberFactory",
+    "RxMemberGenerator",
     # Pharmacy
     "PharmacyType",
     "Pharmacy",

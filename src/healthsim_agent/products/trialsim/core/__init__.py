@@ -1,24 +1,38 @@
-"""TrialSim core models and generators."""
+"""TrialSim core module - models and generators."""
 
-from healthsim_agent.products.trialsim.core.generator import (
-    AdverseEventGenerator,
-    ExposureGenerator,
-    TrialSubjectGenerator,
-    VisitGenerator,
-)
 from healthsim_agent.products.trialsim.core.models import (
-    AdverseEvent,
+    ArmType,
+    SubjectStatus,
+    VisitType,
+    AESeverity,
     AECausality,
     AEOutcome,
-    AESeverity,
-    ArmType,
-    Exposure,
-    Protocol,
+    LabCategory,
+    CriterionType,
     Site,
+    Protocol,
     Subject,
-    SubjectStatus,
     Visit,
-    VisitType,
+    AdverseEvent,
+    Exposure,
+    VitalSign,
+    LabResult,
+    MedicalHistory,
+    ConcomitantMedication,
+    EligibilityCriterion,
+)
+
+from healthsim_agent.products.trialsim.core.generator import (
+    SubjectGenerator,
+    VisitGenerator,
+    AdverseEventGenerator,
+    ExposureGenerator,
+    VitalSignGenerator,
+    LabResultGenerator,
+    MedicalHistoryGenerator,
+    ConcomitantMedicationGenerator,
+    EligibilityGenerator,
+    TrialSubjectGenerator,
 )
 
 __all__ = [
@@ -29,6 +43,8 @@ __all__ = [
     "AESeverity",
     "AECausality",
     "AEOutcome",
+    "LabCategory",
+    "CriterionType",
     # Models
     "Site",
     "Protocol",
@@ -36,9 +52,20 @@ __all__ = [
     "Visit",
     "AdverseEvent",
     "Exposure",
+    "VitalSign",
+    "LabResult",
+    "MedicalHistory",
+    "ConcomitantMedication",
+    "EligibilityCriterion",
     # Generators
-    "TrialSubjectGenerator",
+    "SubjectGenerator",
     "VisitGenerator",
     "AdverseEventGenerator",
     "ExposureGenerator",
+    "VitalSignGenerator",
+    "LabResultGenerator",
+    "MedicalHistoryGenerator",
+    "ConcomitantMedicationGenerator",
+    "EligibilityGenerator",
+    "TrialSubjectGenerator",
 ]

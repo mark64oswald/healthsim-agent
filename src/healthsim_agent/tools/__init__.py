@@ -6,9 +6,11 @@ This module provides all tools for the HealthSim Agent:
 - Cohort tools: list, load, save, add_entities, delete
 - Query tools: query, get_summary, list_tables
 - Reference tools: query_reference, search_providers
+- Format tools: transform_to_fhir, transform_to_x12, etc.
+- Validation tools: validate_data, fix_validation_issues
 
 Example:
-    >>> from healthsim_agent.tools import list_cohorts, search_providers
+    >>> from healthsim_agent.tools import list_cohorts, search_providers, validate_data
     >>> 
     >>> result = list_cohorts()
     >>> if result.success:
@@ -17,6 +19,9 @@ Example:
     >>> result = search_providers(state="CA", specialty="Family Medicine")
     >>> if result.success:
     ...     print(f"Found {result.data['result_count']} providers")
+    >>>
+    >>> result = validate_data([{"id": "P001", "birth_date": "1980-01-15", "gender": "M"}], "patient")
+    >>> print(f"Valid: {result.data['valid']}")
 """
 
 from .base import (
@@ -70,6 +75,11 @@ from .format_tools import (
     list_output_formats,
 )
 
+from .validation_tools import (
+    validate_data,
+    fix_validation_issues,
+)
+
 
 __all__ = [
     # Base
@@ -109,4 +119,7 @@ __all__ = [
     "transform_to_ncpdp",
     "transform_to_mimic",
     "list_output_formats",
+    # Validation tools
+    "validate_data",
+    "fix_validation_issues",
 ]

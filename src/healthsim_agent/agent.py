@@ -360,6 +360,203 @@ TOOL_DEFINITIONS = [
             },
             "required": ["skill_name", "product"]
         }
+    },
+    # Validation Tools
+    {
+        "name": "validate_data",
+        "description": "Validate entities against schema and business rules.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "entities": {"type": "array", "items": {"type": "object"}, "description": "List of entities to validate"},
+                "entity_type": {"type": "string", "description": "Type: patient, member, subject, rx_member, encounter, claim, diagnosis"},
+                "rules": {"type": "array", "items": {"type": "string"}, "description": "Rules to check: required_fields, data_types, code_validity, date_consistency"},
+                "strict": {"type": "boolean", "default": False, "description": "Fail on warnings too"}
+            },
+            "required": ["entities", "entity_type"]
+        }
+    },
+    {
+        "name": "fix_validation_issues",
+        "description": "Attempt to automatically fix common validation issues.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "entities": {"type": "array", "items": {"type": "object"}, "description": "List of entities to fix"},
+                "entity_type": {"type": "string", "description": "Type of entity"},
+                "auto_fix": {"type": "array", "items": {"type": "string"}, "description": "Issues to fix: missing_ids, date_format, code_normalization, null_defaults"}
+            },
+            "required": ["entities", "entity_type"]
+        }
+    },
+    # Profile Tools
+    {
+        "name": "save_profile",
+        "description": "Save a reusable profile specification for generating entities.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Unique profile name"},
+                "profile_spec": {"type": "object", "description": "Profile specification"},
+                "description": {"type": "string"},
+                "product": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["name", "profile_spec"]
+        }
+    },
+    {
+        "name": "load_profile",
+        "description": "Load a saved profile by name.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Profile name to load"}
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "list_profiles",
+        "description": "List saved profiles with optional filtering.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "product": {"type": "string", "description": "Filter by product"},
+                "tags": {"type": "array", "items": {"type": "string"}, "description": "Filter by tags"},
+                "limit": {"type": "integer", "default": 50}
+            }
+        }
+    },
+    {
+        "name": "delete_profile",
+        "description": "Delete a saved profile.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Profile name to delete"}
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "execute_profile",
+        "description": "Execute a saved profile to generate entities.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Profile name to execute"},
+                "count": {"type": "integer", "description": "Override count"},
+                "seed": {"type": "integer", "description": "Random seed"},
+                "save_to_cohort": {"type": "string", "description": "Cohort to save results to"}
+            },
+            "required": ["name"]
+        }
+    },
+    # Journey Tools
+    {
+        "name": "save_journey",
+        "description": "Save a multi-step journey definition for cross-product generation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Unique journey name"},
+                "steps": {"type": "array", "items": {"type": "object"}, "description": "Journey steps"},
+                "description": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["name", "steps"]
+        }
+    },
+    {
+        "name": "load_journey",
+        "description": "Load a saved journey by name.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Journey name to load"}
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "list_journeys",
+        "description": "List saved journeys with optional filtering.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "product": {"type": "string", "description": "Filter by product involvement"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "include_builtin": {"type": "boolean", "default": True},
+                "limit": {"type": "integer", "default": 50}
+            }
+        }
+    },
+    {
+        "name": "delete_journey",
+        "description": "Delete a saved journey.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Journey name to delete"}
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "execute_journey",
+        "description": "Execute a journey to generate entities across products.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Journey name to execute"},
+                "seed": {"type": "integer", "description": "Random seed"},
+                "save_to_cohort": {"type": "string"},
+                "step_overrides": {"type": "object", "description": "Override parameters for specific steps"}
+            },
+            "required": ["name"]
+        }
+    },
+    # Export Tools
+    {
+        "name": "export_json",
+        "description": "Export data to JSON format.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "data": {"description": "Data to export"},
+                "filepath": {"type": "string", "description": "File path (optional, returns string if not provided)"},
+                "pretty": {"type": "boolean", "default": True},
+                "include_metadata": {"type": "boolean", "default": True}
+            },
+            "required": ["data"]
+        }
+    },
+    {
+        "name": "export_csv",
+        "description": "Export data to CSV format.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "data": {"type": "array", "items": {"type": "object"}, "description": "Data to export"},
+                "filepath": {"type": "string"},
+                "columns": {"type": "array", "items": {"type": "string"}, "description": "Columns to include"},
+                "include_header": {"type": "boolean", "default": True}
+            },
+            "required": ["data"]
+        }
+    },
+    {
+        "name": "export_ndjson",
+        "description": "Export data to NDJSON (newline-delimited JSON) format.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "data": {"type": "array", "items": {"type": "object"}, "description": "Data to export"},
+                "filepath": {"type": "string"}
+            },
+            "required": ["data"]
+        }
     }
 ]
 
@@ -388,6 +585,16 @@ def _get_tool_executor(tool_name: str) -> Callable | None:
         generate_patients, generate_members, generate_subjects,
         generate_rx_members, check_formulary, list_skills, describe_skill
     )
+    from healthsim_agent.tools.validation_tools import (
+        validate_data, fix_validation_issues
+    )
+    from healthsim_agent.tools.profile_journey_tools import (
+        save_profile, load_profile, list_profiles, delete_profile, execute_profile,
+        save_journey, load_journey, list_journeys, delete_journey, execute_journey
+    )
+    from healthsim_agent.tools.export_tools import (
+        export_json, export_csv, export_ndjson
+    )
     
     executors = {
         "list_cohorts": list_cohorts,
@@ -415,6 +622,25 @@ def _get_tool_executor(tool_name: str) -> Callable | None:
         "check_formulary": check_formulary,
         "list_skills": list_skills,
         "describe_skill": describe_skill,
+        # Validation tools
+        "validate_data": validate_data,
+        "fix_validation_issues": fix_validation_issues,
+        # Profile tools
+        "save_profile": save_profile,
+        "load_profile": load_profile,
+        "list_profiles": list_profiles,
+        "delete_profile": delete_profile,
+        "execute_profile": execute_profile,
+        # Journey tools
+        "save_journey": save_journey,
+        "load_journey": load_journey,
+        "list_journeys": list_journeys,
+        "delete_journey": delete_journey,
+        "execute_journey": execute_journey,
+        # Export tools
+        "export_json": export_json,
+        "export_csv": export_csv,
+        "export_ndjson": export_ndjson,
     }
     
     return executors.get(tool_name)

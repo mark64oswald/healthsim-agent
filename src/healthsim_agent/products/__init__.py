@@ -19,7 +19,7 @@ from healthsim_agent.products.membersim import (
 )
 from healthsim_agent.products.rxmembersim import (
     RxMember,
-    RxMemberFactory,
+    RxMemberGenerator,
 )
 from healthsim_agent.products.trialsim import (
     Subject,
@@ -36,7 +36,7 @@ __all__ = [
     "MemberGenerator",
     # RxMemberSim
     "RxMember",
-    "RxMemberFactory",
+    "RxMemberGenerator",
     # TrialSim
     "Subject",
     "TrialSubjectGenerator",

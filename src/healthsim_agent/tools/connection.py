@@ -30,10 +30,11 @@ import duckdb
 # =============================================================================
 
 # Default database path - can be overridden by environment variable
+# NOTE: healthsim-agent uses its OWN database, not the workspace database
 DEFAULT_DB_PATH = Path(
     os.environ.get(
         "HEALTHSIM_DB_PATH",
-        "/Users/markoswald/Developer/projects/healthsim-workspace/healthsim.duckdb"
+        str(Path(__file__).parent.parent.parent.parent / "data" / "healthsim-reference.duckdb")
     )
 )
 
