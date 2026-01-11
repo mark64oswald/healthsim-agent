@@ -256,8 +256,6 @@ def index_skills(product: str | None = None, force: bool = False) -> ToolResult:
         pattern = f"{product}/**/*.md" if product else "**/*.md"
         skill_files = list(SKILLS_DIR.glob(pattern))
         
-        conn = get_manager().get_read_connection()
-        
         for file_path in skill_files:
             # Skip README files and main SKILL.md files
             if file_path.name in ['README.md']:
@@ -275,7 +273,9 @@ def index_skills(product: str | None = None, force: bool = False) -> ToolResult:
                 content_hash = _compute_content_hash(parsed['full_text'])
                 
                 # Check if already indexed with same hash
+                # Get fresh connection each time since write_connection closes it
                 if not force:
+                    conn = get_manager().get_read_connection()
                     existing = conn.execute("""
                         SELECT content_hash FROM skill_index WHERE file_path = ?
                     """, [str(file_path)]).fetchone()
