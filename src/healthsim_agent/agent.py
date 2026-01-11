@@ -734,6 +734,9 @@ Guidelines:
 - Maintain consistency within cohorts (patient IDs, dates, relationships)
 - Explain what you're generating and why
 - Use add_entities to incrementally build cohorts (recommended over save_cohort)
+- IMPORTANT: After every tool call, ALWAYS summarize the results in natural language for the user.
+  For example, after list_cohorts, describe what cohorts exist and their contents.
+  Never end a response immediately after a tool call without explaining the results.
 """
         
         if self._skills_context:

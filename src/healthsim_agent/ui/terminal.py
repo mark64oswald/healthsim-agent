@@ -353,11 +353,39 @@ class TerminalUI:
                     self.show_tool_start(name)
                 
                 def on_tool_end(name: str, result: dict) -> None:
-                    """Show tool completion."""
+                    """Show tool completion and display results for key tools."""
                     if result.get("error"):
                         self.show_result_error(f"{name}: {result['error']}")
                     else:
-                        self.show_result_success(f"{name} completed")
+                        # Generate informative headline
+                        data = result.get("data")
+                        if name == "list_cohorts" and isinstance(data, list):
+                            self.show_result_success(f"Found {len(data)} cohorts")
+                            # Display cohort list directly
+                            if data:
+                                from rich.table import Table
+                                table = Table(show_header=True, header_style="bold cyan")
+                                table.add_column("Name")
+                                table.add_column("Entities", justify="right")
+                                table.add_column("Updated")
+                                for c in data[:20]:  # Limit display
+                                    table.add_row(
+                                        c.get("name", "?"),
+                                        str(c.get("entity_count", 0)),
+                                        str(c.get("updated_at", ""))[:10]
+                                    )
+                                self.console.print(table)
+                        elif name == "get_summary" and isinstance(data, dict):
+                            self.show_result_success(f"Cohort: {data.get('name', '?')}")
+                            self.show_cohort_summary(data)
+                        elif name == "search_providers":
+                            count = result.get("result_count", len(data) if data else 0)
+                            self.show_result_success(f"Found {count} providers")
+                        elif name == "query":
+                            rows = data.get("rows", []) if isinstance(data, dict) else []
+                            self.show_result_success(f"Query returned {len(rows)} rows")
+                        else:
+                            self.show_result_success(f"{name} completed")
                 
                 try:
                     # Try streaming first
