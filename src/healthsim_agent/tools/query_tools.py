@@ -137,21 +137,66 @@ def get_summary(
         return err("Cohort name or ID is required")
     
     samples_per_type = max(1, min(samples_per_type, 10))
+    cohort_id_clean = cohort_id.strip()
     
     try:
-        manager = get_manager().get_read_manager()
+        conn = get_manager().get_read_connection()
         
-        summary = manager.get_summary(
-            cohort_id.strip(),
-            include_samples=include_samples,
-            samples_per_type=samples_per_type,
-        )
+        # Find cohort by ID or name
+        row = conn.execute(
+            "SELECT id, name, description, created_at, updated_at FROM cohorts WHERE id = ? OR name = ?",
+            [cohort_id_clean, cohort_id_clean]
+        ).fetchone()
         
-        # Convert to dict for JSON serialization
-        return ok(summary.to_dict())
+        if not row:
+            return err(f"Cohort not found: {cohort_id_clean}")
         
-    except ValueError as e:
-        return err(str(e))
+        actual_cohort_id, name, description, created_at, updated_at = row
+        
+        # Get entity counts by type
+        counts_result = conn.execute(
+            "SELECT entity_type, COUNT(*) as count FROM cohort_entities WHERE cohort_id = ? GROUP BY entity_type",
+            [actual_cohort_id]
+        ).fetchall()
+        
+        entity_counts = {row[0]: row[1] for row in counts_result}
+        total_entities = sum(entity_counts.values())
+        
+        # Get tags
+        tags_result = conn.execute(
+            "SELECT tag FROM cohort_tags WHERE cohort_id = ?",
+            [actual_cohort_id]
+        ).fetchall()
+        tags = [t[0] for t in tags_result]
+        
+        summary = {
+            "cohort_id": actual_cohort_id,
+            "name": name,
+            "description": description,
+            "created_at": str(created_at) if created_at else None,
+            "updated_at": str(updated_at) if updated_at else None,
+            "tags": tags,
+            "entity_counts": entity_counts,
+            "total_entities": total_entities,
+        }
+        
+        # Optionally include sample entities
+        if include_samples and entity_counts:
+            import json
+            samples = {}
+            for entity_type in entity_counts.keys():
+                sample_rows = conn.execute(
+                    "SELECT entity_data FROM cohort_entities WHERE cohort_id = ? AND entity_type = ? LIMIT ?",
+                    [actual_cohort_id, entity_type, samples_per_type]
+                ).fetchall()
+                samples[entity_type] = [
+                    json.loads(row[0]) if isinstance(row[0], str) else row[0] 
+                    for row in sample_rows
+                ]
+            summary["samples"] = samples
+        
+        return ok(summary)
+        
     except Exception as e:
         return err(f"Failed to get summary: {str(e)}")
 

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed - get_summary Using Removed API (January 11, 2026, Session 3 continued)
+- **Fixed get_summary calling non-existent get_read_manager()** 
+- ConnectionManager.get_read_manager() was removed (StateManager is in-memory only)
+- Rewrote get_summary to use direct SQL queries via get_read_connection()
+- Now properly queries cohorts, cohort_entities, and cohort_tags tables
+
 ### Fixed - Tool Parameter Name Mismatches (January 11, 2026, Session 3 continued)
 - **Fixed load_cohort parameter mismatch** - Tool schema used `cohort_id`, function used `name_or_id`
 - **Fixed delete_cohort parameter mismatch** - Same issue
