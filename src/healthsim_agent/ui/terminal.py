@@ -412,6 +412,65 @@ class TerminalUI:
                         elif name == "query":
                             rows = data.get("rows", []) if isinstance(data, dict) else []
                             self.show_result_success(f"Query returned {len(rows)} rows")
+                        elif name == "transform_to_hl7v2" and isinstance(data, dict):
+                            count = data.get("count", 0)
+                            msg_type = data.get("message_type", "HL7v2")
+                            self.show_result_success(f"Generated {count} {msg_type} messages")
+                            # Display the actual messages
+                            messages = data.get("messages", [])
+                            if messages:
+                                from rich.panel import Panel
+                                from rich.syntax import Syntax
+                                for i, msg in enumerate(messages[:5], 1):  # Limit to 5
+                                    # HL7v2 uses | delimiters, show as plain text
+                                    panel = Panel(
+                                        msg[:2000] + ("..." if len(msg) > 2000 else ""),
+                                        title=f"[bold cyan]Message {i}[/bold cyan]",
+                                        border_style="dim"
+                                    )
+                                    self.console.print(panel)
+                                if len(messages) > 5:
+                                    self.console.print(f"[dim]... and {len(messages) - 5} more messages[/dim]")
+                        elif name == "transform_to_fhir" and isinstance(data, dict):
+                            bundle = data.get("bundle", {})
+                            count = len(bundle.get("entry", [])) if bundle else 0
+                            self.show_result_success(f"Generated FHIR Bundle with {count} resources")
+                            # Show summary of resource types
+                            if bundle and bundle.get("entry"):
+                                from collections import Counter
+                                types = Counter(e.get("resource", {}).get("resourceType", "?") for e in bundle["entry"])
+                                self.console.print(f"[dim]Resources: {dict(types)}[/dim]")
+                        elif name == "transform_to_ccda" and isinstance(data, dict):
+                            doc_type = data.get("document_type", "C-CDA")
+                            self.show_result_success(f"Generated {doc_type} document")
+                            # Show document snippet
+                            xml_content = data.get("document", "")
+                            if xml_content:
+                                from rich.panel import Panel
+                                preview = xml_content[:1500] + ("..." if len(xml_content) > 1500 else "")
+                                panel = Panel(preview, title="[bold cyan]C-CDA Document (preview)[/bold cyan]", border_style="dim")
+                                self.console.print(panel)
+                        elif name == "transform_to_x12" and isinstance(data, dict):
+                            tx_type = data.get("type", "X12")
+                            claim_count = data.get("claim_count", 0)
+                            self.show_result_success(f"Generated X12 {tx_type} ({claim_count} claims)")
+                            # Show EDI content
+                            edi = data.get("transaction", "")
+                            if edi:
+                                from rich.panel import Panel
+                                preview = edi[:2000] + ("..." if len(edi) > 2000 else "")
+                                panel = Panel(preview, title=f"[bold cyan]X12 {tx_type}[/bold cyan]", border_style="dim")
+                                self.console.print(panel)
+                        elif name == "transform_to_ncpdp" and isinstance(data, dict):
+                            count = data.get("claim_count", 0)
+                            self.show_result_success(f"Generated NCPDP D.0 ({count} claims)")
+                            # Show transaction content
+                            tx = data.get("transaction", "")
+                            if tx:
+                                from rich.panel import Panel
+                                preview = tx[:2000] + ("..." if len(tx) > 2000 else "")
+                                panel = Panel(preview, title="[bold cyan]NCPDP D.0 Transaction[/bold cyan]", border_style="dim")
+                                self.console.print(panel)
                         else:
                             self.show_result_success(f"{name} completed")
                 
