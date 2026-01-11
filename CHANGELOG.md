@@ -21,14 +21,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - TemporalValidator tests
   - validate_date_not_future, validate_date_order, validate_duration, validate_age_range
   - Encounter timeline and trial eligibility integration tests
-- **RxMemberSim Claims Tests** - `tests/unit/test_rxmembersim_claims.py` (44 tests)
-  - PharmacyClaim and TransactionCode model tests
-  - ClaimResponse, RejectCode, DURResponseAlert model tests
-  - AdjudicationEngine tests (eligibility, pricing, PA requirements)
-  - PharmacyClaimGenerator factory tests
-  - COMMON_DRUGS reference data tests
-- Total tests: 811 passing (121 new)
-- Coverage improved from 50% to 53%
+- **RxMemberSim DUR Tests** - `tests/unit/test_rxmembersim_dur.py` (43 tests)
+  - DURAlertType, ClinicalSignificance enum tests
+  - DURReasonForService, DURProfessionalService, DURResultOfService enum tests
+  - DURAlert, DrugDrugInteraction, TherapeuticDuplication, AgeRestriction model tests
+  - DURAlertSummary and DUROverride model tests
+  - DURAlertFormatter tests (display, NCPDP format, summary creation)
+- **TrialSim SDTM Tests** - `tests/unit/test_trialsim_sdtm.py` (40 tests)
+  - SDTMDomain enum and SDTMVariable dataclass tests
+  - DM_VARIABLES, AE_VARIABLES domain variable tests
+  - DOMAIN_VARIABLES mapping tests
+  - ExportFormat, ExportConfig, ExportResult model tests
+  - SDTMExporter tests (DM, AE, EX, SV domains)
+  - File export and filtered domain tests
+  - SDTM conversion method tests (USUBJID format, demographics, arm)
+- Total tests: 889 passing (199 new)
+- Coverage improved from 50% to 55%
 - Phase 6 Testing Plan documented in `docs/PHASE-6-TESTING-PLAN.md`
 
 ### Added - Skills Management System (January 10, 2026)
