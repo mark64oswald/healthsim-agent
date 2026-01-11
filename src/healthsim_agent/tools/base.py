@@ -22,6 +22,7 @@ SCENARIO_ENTITY_TYPES: Set[str] = {
     # Core patient data
     "patients",      # Synthetic patient demographics
     "members",       # Synthetic insurance enrollment  
+    "enrollments",   # Alias for members (enrollment creates member records)
     "subjects",      # Clinical trial subjects
     
     # Clinical observations (generated with encounters)

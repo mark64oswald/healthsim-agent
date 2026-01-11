@@ -338,6 +338,7 @@ SERIALIZERS = {
     'medication': serialize_medication, 'medications': serialize_medication,
     'lab_result': serialize_lab_result, 'lab_results': serialize_lab_result,
     'member': serialize_member, 'members': serialize_member,
+    'enrollment': serialize_member, 'enrollments': serialize_member,  # Alias for members
     'claim': serialize_claim, 'claims': serialize_claim,
     'prescription': serialize_prescription, 'prescriptions': serialize_prescription,
     'subject': serialize_subject, 'subjects': serialize_subject,
@@ -351,6 +352,7 @@ ENTITY_TABLE_MAP = {
     'medication': ('medications', 'id'), 'medications': ('medications', 'id'),
     'lab_result': ('lab_results', 'id'), 'lab_results': ('lab_results', 'id'),
     'member': ('members', 'id'), 'members': ('members', 'id'),
+    'enrollment': ('members', 'id'), 'enrollments': ('members', 'id'),  # Alias for members
     'claim': ('claims', 'claim_id'), 'claims': ('claims', 'claim_id'),
     'claim_line': ('claim_lines', 'id'), 'claim_lines': ('claim_lines', 'id'),
     'prescription': ('prescriptions', 'prescription_id'),

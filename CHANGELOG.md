@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **save_cohort "Unknown entity type: diagnosis" error** - Added missing clinical observation types to SCENARIO_ENTITY_TYPES in tools/base.py:
   - Added: diagnoses, medications, lab_results
   - Removed: vital_signs (no database table exists)
+- **save_cohort "Unknown entity type: enrollments" error** - Added enrollments as alias for members (enrollment action creates member records with coverage data)
 - **Missing serializers** - Added serialize_medication and serialize_lab_result to state/serializers.py
 - **ENTITY_TABLE_MAP cleanup** - Removed vital_signs entry (no table exists in schema)
 
