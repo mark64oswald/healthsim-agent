@@ -21,10 +21,11 @@ def _parse_date(value: Any) -> date | None:
     """Parse date from various formats."""
     if value is None:
         return None
-    if isinstance(value, date):
-        return value
+    # Check datetime BEFORE date (datetime is a subclass of date)
     if isinstance(value, datetime):
         return value.date()
+    if isinstance(value, date):
+        return value
     if isinstance(value, str):
         try:
             return datetime.fromisoformat(value.replace('Z', '+00:00')).date()
@@ -168,6 +169,58 @@ def serialize_diagnosis(entity: dict[str, Any], provenance: dict | None = None) 
     }
 
 
+def serialize_medication(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
+    """Prepare a medication entity for database insertion."""
+    prov = provenance or entity.get('_provenance', {})
+    
+    return {
+        'id': entity.get('id') or str(uuid4()),
+        'name': entity.get('name') or entity.get('drug_name'),
+        'code': entity.get('code') or entity.get('ndc'),
+        'dose': entity.get('dose') or entity.get('dosage'),
+        'route': entity.get('route', 'oral'),
+        'frequency': entity.get('frequency', 'daily'),
+        'patient_mrn': entity.get('patient_mrn') or entity.get('patient_id'),
+        'encounter_id': entity.get('encounter_id'),
+        'start_date': _parse_datetime(entity.get('start_date')),
+        'end_date': _parse_datetime(entity.get('end_date')),
+        'status': entity.get('status', 'active'),
+        'prescriber': entity.get('prescriber') or entity.get('prescriber_npi'),
+        'indication': entity.get('indication'),
+        'created_at': datetime.utcnow(),
+        'source_type': prov.get('source_type', 'generated'),
+        'source_system': prov.get('source_system', 'patientsim'),
+        'skill_used': prov.get('skill_used'),
+        'generation_seed': prov.get('seed'),
+    }
+
+
+def serialize_lab_result(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
+    """Prepare a lab result entity for database insertion."""
+    prov = provenance or entity.get('_provenance', {})
+    
+    return {
+        'id': entity.get('id') or str(uuid4()),
+        'test_name': entity.get('test_name') or entity.get('name'),
+        'loinc_code': entity.get('loinc_code') or entity.get('code'),
+        'value': entity.get('value'),
+        'unit': entity.get('unit'),
+        'reference_range': entity.get('reference_range'),
+        'abnormal_flag': entity.get('abnormal_flag') or entity.get('interpretation'),
+        'patient_mrn': entity.get('patient_mrn') or entity.get('patient_id'),
+        'encounter_id': entity.get('encounter_id'),
+        'collected_time': _parse_datetime(entity.get('collected_time') or entity.get('collection_date')),
+        'resulted_time': _parse_datetime(entity.get('resulted_time') or entity.get('result_date')),
+        'performing_lab': entity.get('performing_lab'),
+        'ordering_provider': entity.get('ordering_provider'),
+        'created_at': datetime.utcnow(),
+        'source_type': prov.get('source_type', 'generated'),
+        'source_system': prov.get('source_system', 'patientsim'),
+        'skill_used': prov.get('skill_used'),
+        'generation_seed': prov.get('seed'),
+    }
+
+
 def serialize_member(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
     """Prepare a member entity for database insertion."""
     prov = provenance or entity.get('_provenance', {})
@@ -282,6 +335,8 @@ SERIALIZERS = {
     'patient': serialize_patient, 'patients': serialize_patient,
     'encounter': serialize_encounter, 'encounters': serialize_encounter,
     'diagnosis': serialize_diagnosis, 'diagnoses': serialize_diagnosis,
+    'medication': serialize_medication, 'medications': serialize_medication,
+    'lab_result': serialize_lab_result, 'lab_results': serialize_lab_result,
     'member': serialize_member, 'members': serialize_member,
     'claim': serialize_claim, 'claims': serialize_claim,
     'prescription': serialize_prescription, 'prescriptions': serialize_prescription,
@@ -295,7 +350,6 @@ ENTITY_TABLE_MAP = {
     'diagnosis': ('diagnoses', 'id'), 'diagnoses': ('diagnoses', 'id'),
     'medication': ('medications', 'id'), 'medications': ('medications', 'id'),
     'lab_result': ('lab_results', 'id'), 'lab_results': ('lab_results', 'id'),
-    'vital_sign': ('vital_signs', 'id'), 'vital_signs': ('vital_signs', 'id'),
     'member': ('members', 'id'), 'members': ('members', 'id'),
     'claim': ('claims', 'claim_id'), 'claims': ('claims', 'claim_id'),
     'claim_line': ('claim_lines', 'id'), 'claim_lines': ('claim_lines', 'id'),

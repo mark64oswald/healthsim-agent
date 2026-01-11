@@ -19,13 +19,21 @@ import json
 # SCENARIO DATA: Synthetic PHI entities that are generated per-cohort
 # These are the ONLY entity types that should be stored in cohort_entities
 SCENARIO_ENTITY_TYPES: Set[str] = {
+    # Core patient data
     "patients",      # Synthetic patient demographics
     "members",       # Synthetic insurance enrollment  
+    "subjects",      # Clinical trial subjects
+    
+    # Clinical observations (generated with encounters)
+    "encounters",    # Synthetic clinical encounters
+    "diagnoses",     # Diagnoses associated with encounters
+    "medications",   # Medications prescribed/administered
+    "lab_results",   # Laboratory test results
+    
+    # Claims and pharmacy
     "claims",        # Synthetic claims/utilization
     "claim_lines",   # Synthetic claim line items
-    "encounters",    # Synthetic clinical encounters
     "prescriptions", # Synthetic medication records
-    "subjects",      # Clinical trial subjects
 }
 
 # RELATIONSHIP ENTITIES: Link cohort data to reference data via IDs/NPIs

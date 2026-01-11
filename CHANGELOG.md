@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed - Entity Type Taxonomy (January 11, 2026, Session 3)
+- **save_cohort "Unknown entity type: diagnosis" error** - Added missing clinical observation types to SCENARIO_ENTITY_TYPES in tools/base.py:
+  - Added: diagnoses, medications, lab_results
+  - Removed: vital_signs (no database table exists)
+- **Missing serializers** - Added serialize_medication and serialize_lab_result to state/serializers.py
+- **ENTITY_TABLE_MAP cleanup** - Removed vital_signs entry (no table exists in schema)
+
 ### Added - Phase 6 Testing Improvements (January 11, 2026, Session 3)
 - **Temporal Utility Tests** - `tests/unit/test_temporal_utils.py` (44 tests)
   - calculate_age tests (birthday handling, as_of dates)
