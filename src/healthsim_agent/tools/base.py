@@ -18,23 +18,27 @@ import json
 
 # SCENARIO DATA: Synthetic PHI entities that are generated per-cohort
 # These are the ONLY entity types that should be stored in cohort_entities
+# Includes canonical names AND semantic aliases the LLM might generate
 SCENARIO_ENTITY_TYPES: Set[str] = {
-    # Core patient data
-    "patients",      # Synthetic patient demographics
-    "members",       # Synthetic insurance enrollment  
-    "enrollments",   # Alias for members (enrollment creates member records)
-    "subjects",      # Clinical trial subjects
+    # PatientSim - Core
+    "patients",
+    "encounters", "visits", "appointments",  # visits/appointments → encounters
+    "diagnoses", "conditions",  # conditions → diagnoses
+    "medications", "drugs",  # drugs → medications
+    "lab_results", "labs", "tests",  # labs/tests → lab_results
     
-    # Clinical observations (generated with encounters)
-    "encounters",    # Synthetic clinical encounters
-    "diagnoses",     # Diagnoses associated with encounters
-    "medications",   # Medications prescribed/administered
-    "lab_results",   # Laboratory test results
+    # MemberSim - Core
+    "members", "enrollments", "subscribers", "dependents", "coverages",  # All → members
+    "claims",
+    "claim_lines",
     
-    # Claims and pharmacy
-    "claims",        # Synthetic claims/utilization
-    "claim_lines",   # Synthetic claim line items
-    "prescriptions", # Synthetic medication records
+    # RxMemberSim - Core
+    "prescriptions", "rxs",  # rxs → prescriptions
+    "pharmacy_claims", "rx_claims", "fills", "refills",  # All → pharmacy_claims
+    
+    # TrialSim - Core
+    "subjects", "participants", "trial_subjects",  # All → subjects
+    "adverse_events", "aes", "side_effects",  # All → adverse_events
 }
 
 # RELATIONSHIP ENTITIES: Link cohort data to reference data via IDs/NPIs

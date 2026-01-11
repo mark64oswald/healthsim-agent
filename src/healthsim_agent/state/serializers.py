@@ -330,34 +330,176 @@ def serialize_subject(entity: dict[str, Any], provenance: dict | None = None) ->
     }
 
 
-# Serializer Registry
+def serialize_claim_line(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
+    """Prepare a claim line entity for database insertion."""
+    prov = provenance or entity.get('_provenance', {})
+    
+    return {
+        'id': entity.get('id') or str(uuid4()),
+        'claim_id': entity.get('claim_id'),
+        'line_number': entity.get('line_number', 1),
+        'procedure_code': entity.get('procedure_code') or entity.get('cpt_code'),
+        'procedure_modifiers': entity.get('procedure_modifiers'),
+        'service_date': _parse_date(entity.get('service_date')),
+        'units': entity.get('units', 1),
+        'charge_amount': entity.get('charge_amount'),
+        'allowed_amount': entity.get('allowed_amount'),
+        'paid_amount': entity.get('paid_amount'),
+        'diagnosis_pointers': entity.get('diagnosis_pointers'),
+        'revenue_code': entity.get('revenue_code'),
+        'ndc_code': entity.get('ndc_code'),
+        'place_of_service': entity.get('place_of_service', '11'),
+        'created_at': datetime.utcnow(),
+        'source_type': prov.get('source_type', 'generated'),
+        'source_system': prov.get('source_system', 'membersim'),
+        'skill_used': prov.get('skill_used'),
+        'generation_seed': prov.get('seed'),
+    }
+
+
+def serialize_pharmacy_claim(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
+    """Prepare a pharmacy claim entity for database insertion."""
+    prov = provenance or entity.get('_provenance', {})
+    
+    return {
+        'claim_id': entity.get('claim_id') or entity.get('id') or str(uuid4()),
+        'transaction_code': entity.get('transaction_code', 'B1'),
+        'service_date': _parse_date(entity.get('service_date') or entity.get('fill_date')),
+        'pharmacy_npi': entity.get('pharmacy_npi'),
+        'pharmacy_ncpdp': entity.get('pharmacy_ncpdp'),
+        'member_id': entity.get('member_id'),
+        'cardholder_id': entity.get('cardholder_id') or entity.get('member_id'),
+        'person_code': entity.get('person_code'),
+        'bin': entity.get('bin'),
+        'pcn': entity.get('pcn'),
+        'group_number': entity.get('group_number') or entity.get('group_id'),
+        'prescription_number': entity.get('prescription_number') or entity.get('rx_number'),
+        'fill_number': entity.get('fill_number', 0),
+        'ndc': entity.get('ndc'),
+        'quantity_dispensed': entity.get('quantity_dispensed') or entity.get('quantity'),
+        'days_supply': entity.get('days_supply'),
+        'daw_code': entity.get('daw_code', '0'),
+        'prescriber_npi': entity.get('prescriber_npi'),
+        'ingredient_cost_submitted': entity.get('ingredient_cost_submitted'),
+        'dispensing_fee_submitted': entity.get('dispensing_fee_submitted'),
+        'usual_customary_charge': entity.get('usual_customary_charge'),
+        'gross_amount_due': entity.get('gross_amount_due'),
+        'patient_pay_amount': entity.get('patient_pay_amount'),
+        'created_at': datetime.utcnow(),
+        'source_type': prov.get('source_type', 'generated'),
+        'source_system': prov.get('source_system', 'rxmembersim'),
+        'skill_used': prov.get('skill_used'),
+        'generation_seed': prov.get('seed'),
+    }
+
+
+def serialize_adverse_event(entity: dict[str, Any], provenance: dict | None = None) -> dict[str, Any]:
+    """Prepare an adverse event entity for database insertion."""
+    prov = provenance or entity.get('_provenance', {})
+    
+    return {
+        'id': entity.get('id') or str(uuid4()),
+        'usubjid': entity.get('usubjid') or entity.get('subject_id'),
+        'aeseq': entity.get('aeseq') or entity.get('sequence'),
+        'aeterm': entity.get('aeterm') or entity.get('term') or entity.get('description'),
+        'aedecod': entity.get('aedecod') or entity.get('preferred_term'),
+        'aebodsys': entity.get('aebodsys') or entity.get('body_system'),
+        'aestdtc': _parse_date(entity.get('aestdtc') or entity.get('start_date')),
+        'aeendtc': _parse_date(entity.get('aeendtc') or entity.get('end_date')),
+        'aesev': entity.get('aesev') or entity.get('severity'),
+        'aetoxgr': entity.get('aetoxgr') or entity.get('toxicity_grade'),
+        'aeser': entity.get('aeser') or entity.get('serious'),
+        'aerel': entity.get('aerel') or entity.get('relationship'),
+        'aeacn': entity.get('aeacn') or entity.get('action_taken'),
+        'aeout': entity.get('aeout') or entity.get('outcome'),
+        'created_at': datetime.utcnow(),
+        'source_type': prov.get('source_type', 'generated'),
+        'source_system': prov.get('source_system', 'trialsim'),
+        'skill_used': prov.get('skill_used'),
+        'generation_seed': prov.get('seed'),
+    }
+
+
+# Serializer Registry - includes canonical names and semantic aliases
 SERIALIZERS = {
+    # PatientSim
     'patient': serialize_patient, 'patients': serialize_patient,
     'encounter': serialize_encounter, 'encounters': serialize_encounter,
+    'visit': serialize_encounter, 'visits': serialize_encounter,  # Alias
+    'appointment': serialize_encounter, 'appointments': serialize_encounter,  # Alias
     'diagnosis': serialize_diagnosis, 'diagnoses': serialize_diagnosis,
+    'condition': serialize_diagnosis, 'conditions': serialize_diagnosis,  # Alias
     'medication': serialize_medication, 'medications': serialize_medication,
+    'drug': serialize_medication, 'drugs': serialize_medication,  # Alias
     'lab_result': serialize_lab_result, 'lab_results': serialize_lab_result,
+    'lab': serialize_lab_result, 'labs': serialize_lab_result,  # Alias
+    'test': serialize_lab_result, 'tests': serialize_lab_result,  # Alias
+    
+    # MemberSim
     'member': serialize_member, 'members': serialize_member,
-    'enrollment': serialize_member, 'enrollments': serialize_member,  # Alias for members
+    'enrollment': serialize_member, 'enrollments': serialize_member,  # Alias
+    'subscriber': serialize_member, 'subscribers': serialize_member,  # Alias
+    'dependent': serialize_member, 'dependents': serialize_member,  # Alias
+    'coverage': serialize_member, 'coverages': serialize_member,  # Alias
     'claim': serialize_claim, 'claims': serialize_claim,
+    'claim_line': serialize_claim_line, 'claim_lines': serialize_claim_line,
+    
+    # RxMemberSim
     'prescription': serialize_prescription, 'prescriptions': serialize_prescription,
+    'rx': serialize_prescription, 'rxs': serialize_prescription,  # Alias
+    'pharmacy_claim': serialize_pharmacy_claim, 'pharmacy_claims': serialize_pharmacy_claim,
+    'rx_claim': serialize_pharmacy_claim, 'rx_claims': serialize_pharmacy_claim,  # Alias
+    'fill': serialize_pharmacy_claim, 'fills': serialize_pharmacy_claim,  # Alias
+    'refill': serialize_pharmacy_claim, 'refills': serialize_pharmacy_claim,  # Alias
+    
+    # TrialSim
     'subject': serialize_subject, 'subjects': serialize_subject,
+    'participant': serialize_subject, 'participants': serialize_subject,  # Alias
+    'trial_subject': serialize_subject, 'trial_subjects': serialize_subject,  # Alias
+    'adverse_event': serialize_adverse_event, 'adverse_events': serialize_adverse_event,
+    'ae': serialize_adverse_event, 'aes': serialize_adverse_event,  # Alias
+    'side_effect': serialize_adverse_event, 'side_effects': serialize_adverse_event,  # Alias
 }
 
-# Entity type to table name and ID column mapping
+# Entity type to table name and ID column mapping - includes semantic aliases
 ENTITY_TABLE_MAP = {
+    # PatientSim
     'patient': ('patients', 'id'), 'patients': ('patients', 'id'),
     'encounter': ('encounters', 'encounter_id'), 'encounters': ('encounters', 'encounter_id'),
+    'visit': ('encounters', 'encounter_id'), 'visits': ('encounters', 'encounter_id'),
+    'appointment': ('encounters', 'encounter_id'), 'appointments': ('encounters', 'encounter_id'),
     'diagnosis': ('diagnoses', 'id'), 'diagnoses': ('diagnoses', 'id'),
+    'condition': ('diagnoses', 'id'), 'conditions': ('diagnoses', 'id'),
     'medication': ('medications', 'id'), 'medications': ('medications', 'id'),
+    'drug': ('medications', 'id'), 'drugs': ('medications', 'id'),
     'lab_result': ('lab_results', 'id'), 'lab_results': ('lab_results', 'id'),
+    'lab': ('lab_results', 'id'), 'labs': ('lab_results', 'id'),
+    'test': ('lab_results', 'id'), 'tests': ('lab_results', 'id'),
+    
+    # MemberSim
     'member': ('members', 'id'), 'members': ('members', 'id'),
-    'enrollment': ('members', 'id'), 'enrollments': ('members', 'id'),  # Alias for members
+    'enrollment': ('members', 'id'), 'enrollments': ('members', 'id'),
+    'subscriber': ('members', 'id'), 'subscribers': ('members', 'id'),
+    'dependent': ('members', 'id'), 'dependents': ('members', 'id'),
+    'coverage': ('members', 'id'), 'coverages': ('members', 'id'),
     'claim': ('claims', 'claim_id'), 'claims': ('claims', 'claim_id'),
     'claim_line': ('claim_lines', 'id'), 'claim_lines': ('claim_lines', 'id'),
-    'prescription': ('prescriptions', 'prescription_id'),
-    'prescriptions': ('prescriptions', 'prescription_id'),
-    'subject': ('subjects', 'subject_id'), 'subjects': ('subjects', 'subject_id'),
+    
+    # RxMemberSim
+    'prescription': ('prescriptions', 'prescription_number'), 'prescriptions': ('prescriptions', 'prescription_number'),
+    'rx': ('prescriptions', 'prescription_number'), 'rxs': ('prescriptions', 'prescription_number'),
+    'pharmacy_claim': ('pharmacy_claims', 'claim_id'), 'pharmacy_claims': ('pharmacy_claims', 'claim_id'),
+    'rx_claim': ('pharmacy_claims', 'claim_id'), 'rx_claims': ('pharmacy_claims', 'claim_id'),
+    'fill': ('pharmacy_claims', 'claim_id'), 'fills': ('pharmacy_claims', 'claim_id'),
+    'refill': ('pharmacy_claims', 'claim_id'), 'refills': ('pharmacy_claims', 'claim_id'),
+    
+    # TrialSim
+    'subject': ('subjects', 'id'), 'subjects': ('subjects', 'id'),
+    'participant': ('subjects', 'id'), 'participants': ('subjects', 'id'),
+    'trial_subject': ('subjects', 'id'), 'trial_subjects': ('subjects', 'id'),
+    'adverse_event': ('adverse_events', 'id'), 'adverse_events': ('adverse_events', 'id'),
+    'ae': ('adverse_events', 'id'), 'aes': ('adverse_events', 'id'),
+    'side_effect': ('adverse_events', 'id'), 'side_effects': ('adverse_events', 'id'),
 }
 
 

@@ -7,12 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed - Entity Type Taxonomy (January 11, 2026, Session 3)
-- **save_cohort "Unknown entity type: diagnosis" error** - Added missing clinical observation types to SCENARIO_ENTITY_TYPES in tools/base.py:
-  - Added: diagnoses, medications, lab_results
-  - Removed: vital_signs (no database table exists)
-- **save_cohort "Unknown entity type: enrollments" error** - Added enrollments as alias for members (enrollment action creates member records with coverage data)
-- **Missing serializers** - Added serialize_medication and serialize_lab_result to state/serializers.py
-- **ENTITY_TABLE_MAP cleanup** - Removed vital_signs entry (no table exists in schema)
+- **Comprehensive entity type audit** - Audited all products against database schema to identify gaps
+- **save_cohort "Unknown entity type: diagnosis" error** - Added missing clinical observation types
+- **save_cohort "Unknown entity type: enrollments" error** - Added enrollments as alias for members
+- **Missing tables now registered**: pharmacy_claims (RxMemberSim), adverse_events (TrialSim)
+- **New serializers created**: serialize_claim_line, serialize_pharmacy_claim, serialize_adverse_event
+- **Comprehensive semantic aliases added** to handle natural language variations:
+
+| LLM Term | Maps To | Product |
+|----------|---------|---------|
+| visit, visits, appointment, appointments | encounters | PatientSim |
+| condition, conditions | diagnoses | PatientSim |
+| drug, drugs | medications | PatientSim |
+| lab, labs, test, tests | lab_results | PatientSim |
+| enrollment, enrollments, subscriber, subscribers, dependent, dependents, coverage, coverages | members | MemberSim |
+| rx, rxs | prescriptions | RxMemberSim |
+| pharmacy_claim, rx_claim, fill, fills, refill, refills | pharmacy_claims | RxMemberSim |
+| participant, participants, trial_subject, trial_subjects | subjects | TrialSim |
+| ae, aes, side_effect, side_effects | adverse_events | TrialSim |
+
+- Documented audit in `docs/ENTITY-TYPE-AUDIT.md`
 
 ### Fixed - Agent Tool Result Session Bug (January 11, 2026, Session 3)
 - **"tool_use ids without tool_result" API error** - Tool results were appended to a local messages list but never saved to the session. On subsequent conversation turns, the API received tool_use blocks without corresponding tool_result blocks, causing 400 errors.
