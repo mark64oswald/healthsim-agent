@@ -21,7 +21,7 @@ Migrating the HealthSim workspace (~20,000 lines of Python) to a standalone Agen
 | Phase 3 | Skills Integration | ✅ Complete | 100% |
 | Phase 4 | Agent Tools | ✅ Complete | 100% |
 | Phase 5 | UI Enhancements | ✅ Complete | 100% |
-| Phase 6 | Testing & Polish | 🟡 In Progress | 40% |
+| Phase 6 | Testing & Polish | 🟡 In Progress | 50% |
 | Phase 7 | Documentation & Release | ⬜ Not Started | 0% |
 
 **Overall Progress**: ~89% (Phases 0-5 complete, Phase 6 ~40%)
@@ -392,15 +392,22 @@ From `packages/core/src/healthsim/`:
 - [x] Validation module tests (77 tests) - 95-100% coverage
 - [x] RxMemberSim DUR tests (43 tests) - covering alerts/rules modules
 - [x] TrialSim SDTM tests (40 tests) - 93-94% coverage
-- **Current**: 889 tests, 55% coverage
+- [x] RxMemberSim claims tests (27 tests) - covering adjudication module
+- [x] Auto naming tests (38 tests) - 100% coverage
+- [x] Temporal utils tests (44 tests) - 100% coverage
+- [x] Entity/provenance tests (25 tests) - 100% coverage
+- [x] Skills schema tests (35 tests) - improved coverage
+- **Current**: 1317 tests, 60% coverage
 
 ### Remaining Tasks
 
 #### 6.1 Unit Test Coverage
-- [ ] ADaM exporter tests (28% coverage → target 80%)
-- [ ] State module tests (auto_naming 12%, auto_persist 27%)
-- [ ] Temporal module tests (periods 32%, timeline 40%)
-- [ ] Format tools tests (29% coverage)
+- [x] temporal/utils.py tests (100% coverage ✅)
+- [x] state/provenance.py tests (100% coverage ✅)
+- [x] skills/schema.py tests (improved coverage)
+- [ ] State module tests (auto_persist 38%, journey_manager 42%)
+- [ ] Format tools tests (39% coverage)
+- [ ] Skill tools tests (50% coverage)
 
 #### 6.2 Integration Tests
 - [ ] End-to-end conversation tests
@@ -418,8 +425,8 @@ From `packages/core/src/healthsim/`:
 - [ ] Polish error messages
 
 ### Verification Criteria
-- [ ] All tests passing (✅ 889 passing)
-- [ ] Coverage >80% (55% achieved)
+- [x] All tests passing (✅ 1317 passing)
+- [ ] Coverage >80% (60% achieved, target 80%)
 - [ ] No critical bugs
 
 ---

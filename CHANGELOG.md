@@ -6,6 +6,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added - Phase 6 Testing Improvements (January 11, 2026, Session 3)
+- **Temporal Utility Tests** - `tests/unit/test_temporal_utils.py` (44 tests)
+  - calculate_age tests (birthday handling, as_of dates)
+  - format_datetime_iso and format_date_iso tests
+  - parse_datetime and parse_date tests
+  - random_date_in_range and random_datetime_in_range tests
+  - date_range and days_between tests
+  - relative_date tests (days, months, years, leap year handling)
+  - business_days_between and next_business_day tests
+  - is_future_date tests
+- **Entity & Provenance Tests** - `tests/unit/test_entity_provenance.py` (25 tests)
+  - SourceType enum tests
+  - Provenance class tests (generated, loaded, derived factory methods)
+  - EntityWithProvenance tests (creation, from_model)
+  - ProvenanceSummary tests (from_entities, aggregation, deduplication)
+- **Skills Schema Tests** - `tests/unit/test_skills_schema.py` (35 tests)
+  - SkillType and ParameterType enum tests
+  - SkillMetadata tests
+  - SkillParameter tests (creation and validation)
+  - SkillParameter.validate_value tests (all types: enum, boolean, integer, float, range)
+  - SkillVariation tests
+  - Skill tests (get_parameter, get_parameter_value, apply_variation)
+
+### Coverage Progress (January 11, 2026, Session 3)
+- Total tests: 1317 passing (627 new from baseline 690)
+- Overall coverage: 60% (up from 50% baseline)
+- New 100% coverage: temporal/utils.py, provenance.py
+- Existing 100% coverage: validation/framework.py, validation/temporal.py, state/auto_naming.py
+
+### Added - Phase 6 Testing Improvements (January 11, 2026, Session 2)
+- **RxMemberSim Claims Tests** - `tests/unit/test_rxmembersim_claims.py` (27 tests)
+  - TransactionCode enum tests
+  - PharmacyClaim model tests (billing, reversal, prior auth, DUR fields)
+  - RejectCode and DURResponseAlert model tests
+  - ClaimResponse tests (approved, rejected, with DUR alerts)
+  - EligibilityResult and PricingResult dataclass tests
+  - AdjudicationEngine tests (eligibility checks, pricing, rejections)
+
+### Fixed - Implementation Bugs (January 11, 2026)
+- **format_tools._parse_date** - Fixed datetime/date isinstance check order (datetime is subclass of date)
+- **format_tools._dict_to_patient** - Fixed name field handling when no nested 'name' dict present
+- **format_tools._dict_to_patient** - Fixed MRN default to prevent Pydantic validation error
+- **test_format_tools_extended** - Fixed test assertions using `result.message` to `result.error` per ToolResult API
+
+### Coverage Progress (January 11, 2026)
+- Total tests: 1172 passing (482 new from baseline 690)
+- Overall coverage: 58% (up from 50% baseline)
+- validation/framework.py: 100%
+- validation/temporal.py: 100%
+- validation/structural.py: 95%
+- state/auto_naming.py: 100%
+- rxmembersim/claims/adjudication.py: Now tested
+
 ### Added - Phase 6 Testing Improvements (January 11, 2026)
 - **Validation Module Tests** - `tests/unit/test_validation_framework.py` (26 tests)
   - ValidationSeverity enum tests
