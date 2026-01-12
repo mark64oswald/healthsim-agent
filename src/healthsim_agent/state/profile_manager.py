@@ -103,7 +103,7 @@ class ProfileManager:
     def conn(self):
         """Get database connection."""
         if self._conn is None:
-            from healthsim_agent.database import DatabaseConnection
+            from healthsim_agent.db import DatabaseConnection
             self._conn = DatabaseConnection("data/healthsim-reference.duckdb")
         return self._conn
     
