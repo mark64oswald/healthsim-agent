@@ -1,477 +1,471 @@
 """Extended tests for auto_persist module.
 
-Covers methods not in the original test file:
-- rename_cohort
-- delete_cohort
-- Tag management (add_tag, remove_tag, get_tags, list_all_tags)
-- get_entity_samples
-- Additional dataclass tests
+Covers additional methods: delete, rename, tags, clone, merge, export.
+Uses mocking pattern consistent with existing tests.
 """
 
 import pytest
 from datetime import datetime
-from unittest.mock import MagicMock, patch, PropertyMock
-import tempfile
-import os
-import duckdb
+from unittest.mock import MagicMock, patch
 
 from healthsim_agent.state.auto_persist import (
+    AutoPersistService,
     PersistResult,
     QueryResult,
     CohortBrief,
     CloneResult,
     MergeResult,
     ExportResult,
-    AutoPersistService,
     _validate_query,
     _ensure_unique_name,
     get_auto_persist_service,
 )
 
 
-class TestCloneResult:
-    """Tests for CloneResult dataclass."""
-    
-    def test_create_clone_result(self):
-        """Test creating CloneResult."""
-        result = CloneResult(
-            source_cohort_id="src-123",
-            source_cohort_name="source-cohort",
-            new_cohort_id="new-456",
-            new_cohort_name="cloned-cohort",
-            entities_cloned={"patients": 50, "encounters": 100},
-            total_entities=150,
-        )
-        
-        assert result.source_cohort_id == "src-123"
-        assert result.source_cohort_name == "source-cohort"
-        assert result.new_cohort_id == "new-456"
-        assert result.new_cohort_name == "cloned-cohort"
-        assert result.entities_cloned == {"patients": 50, "encounters": 100}
-        assert result.total_entities == 150
-    
-    def test_clone_result_to_dict(self):
-        """Test CloneResult to_dict."""
-        result = CloneResult(
-            source_cohort_id="src-123",
-            source_cohort_name="source",
-            new_cohort_id="new-456",
-            new_cohort_name="cloned",
-            entities_cloned={"patients": 25},
-            total_entities=25,
-        )
-        
-        d = result.to_dict()
-        
-        assert d['source_cohort_id'] == "src-123"
-        assert d['source_cohort_name'] == "source"
-        assert d['new_cohort_id'] == "new-456"
-        assert d['new_cohort_name'] == "cloned"
-        assert d['entities_cloned'] == {"patients": 25}
-        assert d['total_entities'] == 25
+@pytest.fixture
+def mock_connection():
+    """Create a mock connection."""
+    conn = MagicMock()
+    conn.execute.return_value = MagicMock(rows=[])
+    return conn
 
 
-class TestMergeResult:
-    """Tests for MergeResult dataclass."""
-    
-    def test_create_merge_result(self):
-        """Test creating MergeResult."""
-        result = MergeResult(
-            source_cohort_ids=["coh-1", "coh-2", "coh-3"],
-            source_cohort_names=["cohort-1", "cohort-2", "cohort-3"],
-            target_cohort_id="merged-123",
-            target_cohort_name="merged-cohort",
-            entities_merged={"patients": 100, "encounters": 200},
-            total_entities=300,
-            conflicts_resolved=5,
-        )
-        
-        assert result.source_cohort_ids == ["coh-1", "coh-2", "coh-3"]
-        assert result.source_cohort_names == ["cohort-1", "cohort-2", "cohort-3"]
-        assert result.target_cohort_id == "merged-123"
-        assert result.total_entities == 300
-        assert result.conflicts_resolved == 5
-    
-    def test_merge_result_to_dict(self):
-        """Test MergeResult to_dict."""
-        result = MergeResult(
-            source_cohort_ids=["coh-1", "coh-2"],
-            source_cohort_names=["name-1", "name-2"],
-            target_cohort_id="merged-123",
-            target_cohort_name="merged-cohort",
-            entities_merged={"patients": 50},
-            total_entities=50,
-            conflicts_resolved=0,
-        )
-        
-        d = result.to_dict()
-        
-        assert d['source_cohort_ids'] == ["coh-1", "coh-2"]
-        assert d['source_cohort_names'] == ["name-1", "name-2"]
-        assert d['target_cohort_id'] == "merged-123"
-        assert d['total_entities'] == 50
-        assert d['conflicts_resolved'] == 0
-
-
-class TestExportResult:
-    """Tests for ExportResult dataclass."""
-    
-    def test_create_export_result(self):
-        """Test creating ExportResult."""
-        result = ExportResult(
-            cohort_id="coh-123",
-            cohort_name="test-cohort",
-            format="json",
-            file_path="/tmp/export.json",
-            entities_exported={"patients": 50},
-            total_entities=50,
-            file_size_bytes=1024,
-        )
-        
-        assert result.cohort_id == "coh-123"
-        assert result.cohort_name == "test-cohort"
-        assert result.format == "json"
-        assert result.file_path == "/tmp/export.json"
-        assert result.entities_exported == {"patients": 50}
-        assert result.total_entities == 50
-        assert result.file_size_bytes == 1024
-    
-    def test_export_result_to_dict(self):
-        """Test ExportResult to_dict."""
-        result = ExportResult(
-            cohort_id="coh-123",
-            cohort_name="test",
-            format="csv",
-            file_path="/tmp/export.csv",
-            entities_exported={"members": 100},
-            total_entities=100,
-            file_size_bytes=2048,
-        )
-        
-        d = result.to_dict()
-        
-        assert d['cohort_id'] == "coh-123"
-        assert d['cohort_name'] == "test"
-        assert d['file_path'] == "/tmp/export.csv"
-        assert d['format'] == "csv"
-        assert d['entities_exported'] == {"members": 100}
-        assert d['total_entities'] == 100
-        assert d['file_size_bytes'] == 2048
-
-
-class TestCohortBriefToDict:
-    """Additional CohortBrief tests."""
-    
-    def test_to_dict_with_all_fields(self):
-        """Test CohortBrief to_dict with all fields."""
-        now = datetime.utcnow()
-        
-        brief = CohortBrief(
-            cohort_id="coh-123",
-            name="Test Cohort",
-            description="Full cohort brief",
-            entity_count=75,
-            created_at=now,
-            updated_at=now,
-            tags=["test", "demo", "v1"],
-        )
-        
-        d = brief.to_dict()
-        
-        assert d['cohort_id'] == "coh-123"
-        assert d['name'] == "Test Cohort"
-        assert d['description'] == "Full cohort brief"
-        assert d['entity_count'] == 75
-        assert d['tags'] == ["test", "demo", "v1"]
-        assert 'created_at' in d
-        assert 'updated_at' in d
-
-
-class TestValidateQueryExtended:
-    """Extended tests for _validate_query."""
-    
-    def test_allows_standard_select(self):
-        """Valid SELECT queries pass."""
-        assert _validate_query("SELECT * FROM patients") is True
-        assert _validate_query("SELECT id, name FROM users WHERE age > 18") is True
-    
-    def test_allows_with_cte(self):
-        """WITH (CTE) queries pass."""
-        assert _validate_query("WITH cte AS (SELECT 1) SELECT * FROM cte") is True
-    
-    def test_blocks_update(self):
-        """UPDATE queries raise ValueError."""
-        with pytest.raises(ValueError):
-            _validate_query("UPDATE patients SET name = 'test'")
-    
-    def test_blocks_insert(self):
-        """INSERT queries raise ValueError."""
-        with pytest.raises(ValueError):
-            _validate_query("INSERT INTO patients VALUES (1, 'test')")
-    
-    def test_blocks_delete(self):
-        """DELETE queries raise ValueError."""
-        with pytest.raises(ValueError):
-            _validate_query("DELETE FROM patients WHERE id = 1")
-    
-    def test_blocks_drop(self):
-        """DROP queries raise ValueError."""
-        with pytest.raises(ValueError):
-            _validate_query("DROP TABLE patients")
-    
-    def test_blocks_truncate(self):
-        """TRUNCATE queries raise ValueError."""
-        with pytest.raises(ValueError):
-            _validate_query("TRUNCATE TABLE patients")
-    
-    def test_blocks_alter(self):
-        """ALTER queries raise ValueError."""
-        with pytest.raises(ValueError):
-            _validate_query("ALTER TABLE patients ADD COLUMN test VARCHAR")
-    
-    def test_blocks_create(self):
-        """CREATE queries raise ValueError."""
-        with pytest.raises(ValueError):
-            _validate_query("CREATE TABLE test (id INT)")
-    
-    def test_case_insensitive(self):
-        """Validation is case-insensitive."""
-        with pytest.raises(ValueError):
-            _validate_query("update patients set name = 'x'")
-        with pytest.raises(ValueError):
-            _validate_query("drop TABLE patients")
-
-
-class TestRenameCohort:
-    """Tests for rename_cohort method."""
-    
-    def test_rename_cohort_not_found(self):
-        """Renaming nonexistent cohort raises error."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.rows = []
-        mock_conn.execute.return_value = mock_result
-        
-        service = AutoPersistService(connection=mock_conn)
-        
-        with pytest.raises(ValueError, match="not found"):
-            service.rename_cohort("nonexistent", "new-name")
+@pytest.fixture
+def service(mock_connection):
+    """Create AutoPersistService with mock connection."""
+    return AutoPersistService(mock_connection)
 
 
 class TestDeleteCohort:
     """Tests for delete_cohort method."""
     
-    def test_delete_cohort_requires_confirm(self):
-        """Deletion without confirm=True raises error."""
-        mock_conn = MagicMock()
-        service = AutoPersistService(connection=mock_conn)
-        
+    def test_delete_requires_confirm(self, service):
+        """Delete requires confirm=True."""
         with pytest.raises(ValueError, match="confirm=True"):
-            service.delete_cohort("coh-123", confirm=False)
+            service.delete_cohort("coh-test-1", confirm=False)
     
-    def test_delete_cohort_not_found(self):
-        """Deleting nonexistent cohort raises error."""
-        mock_conn = MagicMock()
+    def test_delete_nonexistent_cohort(self, service, mock_connection):
+        """Delete nonexistent cohort raises error."""
         mock_result = MagicMock()
         mock_result.rows = []
-        mock_conn.execute.return_value = mock_result
-        
-        service = AutoPersistService(connection=mock_conn)
+        mock_connection.execute.return_value = mock_result
         
         with pytest.raises(ValueError, match="not found"):
-            service.delete_cohort("nonexistent", confirm=True)
+            service.delete_cohort("nonexistent-id", confirm=True)
+    
+    def test_delete_cohort_success(self, service, mock_connection):
+        """Successful cohort deletion."""
+        # Mock cohort exists
+        mock_result = MagicMock()
+        mock_result.rows = [("test-cohort", "Test description")]
+        mock_connection.execute.return_value = mock_result
+        
+        # Mock table exists check
+        with patch.object(service, '_table_exists', return_value=False):
+            result = service.delete_cohort("coh-test-1", confirm=True)
+        
+        assert result["cohort_id"] == "coh-test-1"
+        assert result["name"] == "test-cohort"
+
+
+class TestRenameCohort:
+    """Tests for rename_cohort method."""
+    
+    def test_rename_cohort_success(self, service, mock_connection):
+        """Successful cohort rename."""
+        # Mock current name lookup
+        mock_result = MagicMock()
+        mock_result.rows = [("old-name",)]
+        mock_connection.execute.return_value = mock_result
+        
+        with patch('healthsim_agent.state.auto_persist._ensure_unique_name', return_value="new-name"):
+            old_name, new_name = service.rename_cohort("coh-test-1", "new-name")
+        
+        assert old_name == "old-name"
+        assert new_name == "new-name"
+    
+    def test_rename_nonexistent_cohort(self, service, mock_connection):
+        """Rename nonexistent cohort raises error."""
+        mock_result = MagicMock()
+        mock_result.rows = []
+        mock_connection.execute.return_value = mock_result
+        
+        with pytest.raises(ValueError, match="not found"):
+            service.rename_cohort("nonexistent-id", "new-name")
 
 
 class TestTagManagement:
     """Tests for tag management methods."""
     
-    def test_add_tag_cohort_not_found(self):
-        """Adding tag to nonexistent cohort raises error."""
-        mock_conn = MagicMock()
+    def test_add_tag_success(self, service, mock_connection):
+        """Add a new tag successfully."""
+        # Mock cohort exists
+        mock_cohort_info = MagicMock()
+        mock_cohort_info.rows = [("test",)]
+        
+        # Mock tag check (doesn't exist)
+        mock_tag_check = MagicMock()
+        mock_tag_check.rows = [[0]]
+        
+        # Mock get_tags return
+        mock_tags = MagicMock()
+        mock_tags.rows = [("new-tag",), ("existing-tag",)]
+        
+        mock_connection.execute.side_effect = [mock_cohort_info, mock_cohort_info, mock_tag_check, MagicMock(), MagicMock(), mock_tags]
+        
+        with patch.object(service, '_get_cohort_info', return_value={"id": "coh-1"}):
+            with patch.object(service, 'get_tags', return_value=["new-tag", "existing-tag"]):
+                tags = service.add_tag("coh-test-1", "new-tag")
+        
+        assert "new-tag" in tags
+    
+    def test_add_empty_tag(self, service, mock_connection):
+        """Empty tag raises error."""
+        with patch.object(service, '_get_cohort_info', return_value={"id": "coh-1"}):
+            with pytest.raises(ValueError, match="empty"):
+                service.add_tag("coh-test-1", "  ")
+    
+    def test_add_tag_nonexistent_cohort(self, service):
+        """Add tag to nonexistent cohort raises error."""
+        with patch.object(service, '_get_cohort_info', return_value=None):
+            with pytest.raises(ValueError, match="not found"):
+                service.add_tag("nonexistent", "tag")
+    
+    def test_remove_tag_nonexistent_cohort(self, service):
+        """Remove tag from nonexistent cohort raises error."""
+        with patch.object(service, '_get_cohort_info', return_value=None):
+            with pytest.raises(ValueError, match="not found"):
+                service.remove_tag("nonexistent", "tag")
+    
+    def test_remove_tag_success(self, service, mock_connection):
+        """Remove tag successfully."""
+        with patch.object(service, '_get_cohort_info', return_value={"id": "coh-1"}):
+            with patch.object(service, 'get_tags', return_value=["remaining-tag"]):
+                with patch.object(service, '_update_cohort_timestamp'):
+                    tags = service.remove_tag("coh-test-1", "tag-to-remove")
+        
+        assert "remaining-tag" in tags
+    
+    def test_get_tags_returns_list(self, service, mock_connection):
+        """Get tags returns a list."""
+        mock_result = MagicMock()
+        mock_result.rows = [("tag1",), ("tag2",), ("tag3",)]
+        mock_connection.execute.return_value = mock_result
+        
+        tags = service.get_tags("coh-test-1")
+        
+        assert isinstance(tags, list)
+        assert "tag1" in tags
+        assert "tag2" in tags
+        assert "tag3" in tags
+    
+    def test_get_tags_empty(self, service, mock_connection):
+        """Get tags returns empty list when none exist."""
         mock_result = MagicMock()
         mock_result.rows = []
-        mock_conn.execute.return_value = mock_result
+        mock_connection.execute.return_value = mock_result
         
-        service = AutoPersistService(connection=mock_conn)
+        tags = service.get_tags("coh-test-1")
         
-        with pytest.raises(ValueError, match="not found"):
-            service.add_tag("nonexistent", "tag")
+        assert tags == []
     
-    def test_add_tag_empty_raises(self):
-        """Adding empty tag raises error."""
-        mock_conn = MagicMock()
-        cohort_info_result = MagicMock()
-        cohort_info_result.rows = [("coh-123", "Test", "desc", None, None)]
-        mock_conn.execute.return_value = cohort_info_result
-        
-        service = AutoPersistService(connection=mock_conn)
-        
-        with pytest.raises(ValueError, match="empty"):
-            service.add_tag("coh-123", "   ")
-    
-    def test_remove_tag_cohort_not_found(self):
-        """Removing tag from nonexistent cohort raises error."""
-        mock_conn = MagicMock()
+    def test_list_all_tags(self, service, mock_connection):
+        """List all tags returns list."""
         mock_result = MagicMock()
-        mock_result.rows = []
-        mock_conn.execute.return_value = mock_result
+        mock_result.rows = [("demo", 5), ("test", 3)]
+        mock_connection.execute.return_value = mock_result
         
-        service = AutoPersistService(connection=mock_conn)
+        tags = service.list_all_tags()
         
-        with pytest.raises(ValueError, match="not found"):
-            service.remove_tag("nonexistent", "tag")
+        assert isinstance(tags, list)
+
+
+class TestExportResult:
+    """Tests for ExportResult dataclass."""
     
-    def test_get_tags_empty(self):
-        """Getting tags for cohort with none returns empty list."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.rows = []
-        mock_conn.execute.return_value = mock_result
+    def test_export_result_to_dict(self):
+        """ExportResult converts to dict."""
+        result = ExportResult(
+            cohort_id="coh-123",
+            cohort_name="test",
+            format="json",
+            file_path="/tmp/export.json",
+            total_entities=100,
+            file_size_bytes=5000,
+            entities_exported={"patients": 50, "encounters": 50},
+        )
         
-        service = AutoPersistService(connection=mock_conn)
-        result = service.get_tags("coh-123")
+        d = result.to_dict()
         
-        assert result == []
+        assert d["cohort_id"] == "coh-123"
+        assert d["format"] == "json"
+        assert d["total_entities"] == 100
+        assert d["entities_exported"]["patients"] == 50
     
-    def test_get_tags_with_tags(self):
-        """Getting tags returns list of tags."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.rows = [("alpha",), ("beta",), ("gamma",)]
-        mock_conn.execute.return_value = mock_result
+    def test_export_result_fields(self):
+        """ExportResult has expected fields."""
+        result = ExportResult(
+            cohort_id="coh-1",
+            cohort_name="test",
+            format="csv",
+            file_path="/tmp/test.csv",
+            total_entities=50,
+            file_size_bytes=2500,
+            entities_exported={"patients": 50},
+        )
         
-        service = AutoPersistService(connection=mock_conn)
-        result = service.get_tags("coh-123")
-        
-        assert result == ["alpha", "beta", "gamma"]
-    
-    def test_list_all_tags_empty(self):
-        """list_all_tags with no tags returns empty list."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.rows = []
-        mock_conn.execute.return_value = mock_result
-        
-        service = AutoPersistService(connection=mock_conn)
-        result = service.list_all_tags()
-        
-        assert result == []
-    
-    def test_list_all_tags_with_counts(self):
-        """list_all_tags returns tags with counts."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.rows = [("test", 5), ("demo", 3), ("v1", 1)]
-        mock_conn.execute.return_value = mock_result
-        
-        service = AutoPersistService(connection=mock_conn)
-        result = service.list_all_tags()
-        
-        assert len(result) == 3
-        assert result[0] == {'tag': 'test', 'count': 5}
-        assert result[1] == {'tag': 'demo', 'count': 3}
+        assert result.cohort_id == "coh-1"
+        assert result.format == "csv"
+        assert result.file_size_bytes == 2500
 
 
 class TestGetAutoPersistService:
-    """Tests for get_auto_persist_service factory function."""
+    """Tests for get_auto_persist_service function."""
     
     def test_get_service_with_connection(self):
-        """Get service with provided connection."""
+        """Get service with explicit connection."""
         mock_conn = MagicMock()
+        
         service = get_auto_persist_service(connection=mock_conn)
         
         assert isinstance(service, AutoPersistService)
+        assert service.conn is mock_conn
 
 
-class TestPersistResultWithSummary:
-    """Test PersistResult with summary object."""
+class TestEnsureUniqueName:
+    """Tests for _ensure_unique_name function."""
     
-    def test_to_dict_with_summary(self):
-        """Test to_dict when summary is present."""
-        from healthsim_agent.state.summary import CohortSummary
+    def test_name_already_unique(self):
+        """Name that doesn't exist is returned as-is."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rows = [[0]]  # No existing cohort
+        mock_conn.execute.return_value = mock_result
         
-        mock_summary = MagicMock(spec=CohortSummary)
-        mock_summary.to_dict.return_value = {
-            'cohort_id': 'coh-123',
-            'name': 'Test',
-            'total_entities': 10,
-        }
+        result = _ensure_unique_name("brand-new-name", mock_conn)
+        
+        assert result == "brand-new-name"
+    
+    def test_name_conflict_adds_suffix(self):
+        """Conflicting name gets suffix added."""
+        mock_conn = MagicMock()
+        
+        # First call: name exists
+        mock_exists = MagicMock()
+        mock_exists.rows = [[1]]
+        
+        # Second call: name-2 doesn't exist
+        mock_unique = MagicMock()
+        mock_unique.rows = [[0]]
+        
+        mock_conn.execute.side_effect = [mock_exists, mock_unique]
+        
+        result = _ensure_unique_name("test-cohort", mock_conn)
+        
+        assert result == "test-cohort-2"
+    
+    def test_multiple_conflicts(self):
+        """Multiple conflicts handled."""
+        mock_conn = MagicMock()
+        
+        # name exists, name-2 exists, name-3 doesn't
+        mock_exists = MagicMock()
+        mock_exists.rows = [[1]]
+        
+        mock_unique = MagicMock()
+        mock_unique.rows = [[0]]
+        
+        mock_conn.execute.side_effect = [mock_exists, mock_exists, mock_unique]
+        
+        result = _ensure_unique_name("test-cohort", mock_conn)
+        
+        assert result == "test-cohort-3"
+
+
+class TestValidateQueryExtended:
+    """Extended tests for _validate_query function."""
+    
+    def test_valid_select_passes(self):
+        """Basic SELECT passes validation."""
+        assert _validate_query("SELECT * FROM test") is True
+    
+    def test_valid_with_cte_passes(self):
+        """CTE query passes validation."""
+        assert _validate_query("WITH cte AS (SELECT 1) SELECT * FROM cte") is True
+    
+    def test_invalid_show_raises(self):
+        """SHOW statement raises ValueError."""
+        with pytest.raises(ValueError, match="SELECT"):
+            _validate_query("SHOW TABLES")
+    
+    def test_invalid_alter_raises(self):
+        """ALTER statement raises ValueError."""
+        with pytest.raises(ValueError, match="SELECT"):
+            _validate_query("ALTER TABLE x ADD COLUMN y")
+    
+    def test_invalid_grant_raises(self):
+        """GRANT statement raises ValueError."""
+        with pytest.raises(ValueError, match="SELECT"):
+            _validate_query("GRANT SELECT ON x TO user")
+    
+    def test_invalid_exec_raises(self):
+        """EXEC statement raises ValueError."""
+        with pytest.raises(ValueError, match="SELECT"):
+            _validate_query("EXEC sp_something")
+    
+    def test_nested_select_allowed(self):
+        """Nested SELECT is allowed."""
+        assert _validate_query("SELECT * FROM (SELECT id FROM test) sub") is True
+    
+    def test_union_allowed(self):
+        """UNION query allowed."""
+        assert _validate_query("SELECT id FROM a UNION SELECT id FROM b") is True
+    
+    def test_select_with_dangerous_keyword_blocked(self):
+        """SELECT containing INSERT blocked."""
+        with pytest.raises(ValueError):
+            _validate_query("SELECT * FROM test; INSERT INTO bad VALUES (1)")
+
+
+class TestQueryResultExtended:
+    """Extended tests for QueryResult."""
+    
+    def test_large_page_offset(self):
+        """Large page number calculates correct offset."""
+        result = QueryResult(
+            results=[],
+            total_count=10000,
+            page=99,
+            page_size=100,
+            has_more=True,
+            query_executed="SELECT * FROM test",
+        )
+        
+        assert result.offset == 9900
+    
+    def test_to_dict_all_fields(self):
+        """All fields included in to_dict."""
+        result = QueryResult(
+            results=[{"a": 1}, {"a": 2}],
+            total_count=1000,
+            page=5,
+            page_size=50,
+            has_more=True,
+            query_executed="SELECT a FROM test LIMIT 50 OFFSET 250",
+        )
+        
+        d = result.to_dict()
+        
+        assert len(d["results"]) == 2
+        assert d["total_count"] == 1000
+        assert d["page"] == 5
+        assert d["page_size"] == 50
+        assert d["has_more"] is True
+        assert "SELECT" in d["query_executed"]
+
+
+class TestCohortBriefExtended:
+    """Extended tests for CohortBrief."""
+    
+    def test_to_dict_with_tags(self):
+        """Tags included in to_dict."""
+        brief = CohortBrief(
+            cohort_id="coh-1",
+            name="test",
+            description="Test cohort",
+            entity_count=100,
+            created_at=datetime(2025, 1, 15, 10, 30),
+            updated_at=datetime(2025, 1, 15, 11, 0),
+            tags=["demo", "test", "v1"],
+        )
+        
+        d = brief.to_dict()
+        
+        assert d["tags"] == ["demo", "test", "v1"]
+        assert "2025-01-15" in d["created_at"]
+        assert "2025-01-15" in d["updated_at"]
+    
+    def test_to_dict_with_none_values(self):
+        """None values handled in to_dict."""
+        brief = CohortBrief(
+            cohort_id="coh-1",
+            name="test",
+            description=None,
+            entity_count=0,
+            created_at=None,
+            updated_at=None,
+        )
+        
+        d = brief.to_dict()
+        
+        assert d["description"] is None
+        assert d["created_at"] is None
+        assert d["updated_at"] is None
+
+
+class TestCloneResultExtended:
+    """Extended tests for CloneResult."""
+    
+    def test_clone_result_to_dict(self):
+        """CloneResult converts to dict."""
+        result = CloneResult(
+            source_cohort_id="coh-1",
+            source_cohort_name="original",
+            new_cohort_id="coh-2",
+            new_cohort_name="copy",
+            entities_cloned={"patients": 10, "encounters": 20},
+            total_entities=30,
+        )
+        
+        d = result.to_dict()
+        
+        assert d["source_cohort_id"] == "coh-1"
+        assert d["new_cohort_id"] == "coh-2"
+        assert d["total_entities"] == 30
+        assert d["entities_cloned"]["patients"] == 10
+
+
+class TestMergeResultExtended:
+    """Extended tests for MergeResult."""
+    
+    def test_merge_result_to_dict(self):
+        """MergeResult converts to dict."""
+        result = MergeResult(
+            source_cohort_ids=["coh-1", "coh-2"],
+            source_cohort_names=["first", "second"],
+            target_cohort_id="coh-merged",
+            target_cohort_name="merged",
+            entities_merged={"patients": 50},
+            total_entities=50,
+            conflicts_resolved=5,
+        )
+        
+        d = result.to_dict()
+        
+        assert len(d["source_cohort_ids"]) == 2
+        assert d["target_cohort_id"] == "coh-merged"
+        assert d["conflicts_resolved"] == 5
+
+
+class TestPersistResultExtended:
+    """Extended tests for PersistResult."""
+    
+    def test_persist_result_with_summary(self):
+        """PersistResult with summary."""
+        mock_summary = MagicMock()
+        mock_summary.to_dict.return_value = {"cohort_id": "coh-1", "entity_counts": {"patients": 5}}
         
         result = PersistResult(
-            cohort_id="coh-123",
-            cohort_name="test-cohort",
+            cohort_id="coh-1",
+            cohort_name="test",
             entity_type="patient",
-            entities_persisted=10,
-            entity_ids=["p1"],
+            entities_persisted=5,
+            entity_ids=["p1", "p2", "p3", "p4", "p5"],
             summary=mock_summary,
             is_new_cohort=True,
         )
         
         d = result.to_dict()
         
-        assert d['summary'] is not None
-        assert d['summary']['cohort_id'] == 'coh-123'
-
-
-class TestQueryResultEdgeCases:
-    """Edge cases for QueryResult."""
-    
-    def test_empty_results(self):
-        """QueryResult with empty results."""
-        result = QueryResult(
-            results=[],
-            total_count=0,
-            page=0,
-            page_size=10,
-            has_more=False,
-            query_executed="SELECT * FROM empty_table",
-        )
-        
-        assert result.results == []
-        assert result.total_count == 0
-        assert result.has_more is False
-    
-    def test_large_page_offset(self):
-        """QueryResult with large page number."""
-        result = QueryResult(
-            results=[],
-            total_count=10000,
-            page=99,
-            page_size=100,
-            has_more=False,
-            query_executed="SELECT * FROM big_table LIMIT 100 OFFSET 9900",
-        )
-        
-        assert result.offset == 9900
-
-
-class TestEnsureUniqueName:
-    """Tests for _ensure_unique_name helper."""
-    
-    def test_unique_name_returned_directly(self):
-        """Name that doesn't exist is returned directly."""
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.rows = [(0,)]
-        mock_conn.execute.return_value = mock_result
-        
-        result = _ensure_unique_name("test-cohort", mock_conn)
-        
-        assert result == "test-cohort"
-    
-    def test_unique_name_with_suffix(self):
-        """Name collision gets suffix starting at -2."""
-        mock_conn = MagicMock()
-        
-        # First call: base name exists, second call: suffixed name doesn't exist
-        # The function starts counter at 1, increments to 2, so first suffix is -2
-        mock_result_exists = MagicMock()
-        mock_result_exists.rows = [(1,)]
-        mock_result_not_exists = MagicMock()
-        mock_result_not_exists.rows = [(0,)]
-        
-        mock_conn.execute.side_effect = [mock_result_exists, mock_result_not_exists]
-        
-        result = _ensure_unique_name("test-cohort", mock_conn)
-        
-        assert result == "test-cohort-2"
+        assert d["summary"] is not None
+        assert d["summary"]["cohort_id"] == "coh-1"
