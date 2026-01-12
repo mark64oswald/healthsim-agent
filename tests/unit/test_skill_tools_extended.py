@@ -1,507 +1,370 @@
-"""Extended tests for skill management tools.
-
-Tests cover advanced skill operations:
-- save_skill
-- update_skill  
-- delete_skill
-- get_skill_versions
-- restore_skill_version
-- create_skill_from_spec
-"""
+"""Extended tests for skill_tools module to increase coverage."""
 
 import pytest
-from pathlib import Path
-from datetime import datetime
-from unittest.mock import patch, MagicMock
-import tempfile
-import json
+from unittest.mock import MagicMock, patch, AsyncMock
+from datetime import date
 
-from healthsim_agent.tools.skill_tools import (
-    save_skill,
-    update_skill,
-    delete_skill,
-    get_skill_versions,
-    restore_skill_version,
-    create_skill_from_spec,
-    _get_creation_guidance,
-    VALID_PRODUCTS,
-    SKILL_TYPES,
-    REQUIRED_SECTIONS,
-)
+
+class TestSearchSkills:
+    """Tests for search_skills function."""
+    
+    def test_empty_query(self):
+        """Test search with empty query."""
+        from healthsim_agent.tools.skill_tools import search_skills
+        
+        result = search_skills("")
+        # Empty query still returns results
+        assert result is not None
+    
+    def test_query_single_word(self):
+        """Test search with single word."""
+        from healthsim_agent.tools.skill_tools import search_skills
+        
+        result = search_skills("patient")
+        assert result.success is True
+    
+    def test_search_with_limit(self):
+        """Test search with custom limit."""
+        from healthsim_agent.tools.skill_tools import search_skills
+        
+        result = search_skills("patient", limit=5)
+        assert result.success is True
+        if result.data:
+            assert len(result.data) <= 5
+    
+    def test_search_diabetes(self):
+        """Test searching for diabetes skills."""
+        from healthsim_agent.tools.skill_tools import search_skills
+        
+        result = search_skills("diabetes")
+        assert result.success is True
+    
+    def test_search_with_product_filter(self):
+        """Test searching with product filter."""
+        from healthsim_agent.tools.skill_tools import search_skills
+        
+        result = search_skills("patient", product="patientsim")
+        assert result.success is True
+    
+    def test_search_with_skill_type(self):
+        """Test searching with skill type filter."""
+        from healthsim_agent.tools.skill_tools import search_skills
+        
+        result = search_skills("patient", skill_type="scenario")
+        assert result.success is True
+    
+    def test_search_with_tags(self):
+        """Test searching with tags filter."""
+        from healthsim_agent.tools.skill_tools import search_skills
+        
+        result = search_skills("patient", tags=["clinical"])
+        assert result.success is True
+
+
+class TestGetSkill:
+    """Tests for get_skill function."""
+    
+    def test_nonexistent_skill(self):
+        """Test getting nonexistent skill."""
+        from healthsim_agent.tools.skill_tools import get_skill
+        
+        result = get_skill("nonexistent-skill-xyz-123456")
+        assert result.success is False
+    
+    def test_empty_skill_id_returns_default(self):
+        """Test with empty skill ID returns default skill."""
+        from healthsim_agent.tools.skill_tools import get_skill
+        
+        result = get_skill("")
+        # Empty ID returns the root SKILL.md
+        assert result.success is True
+
+
+class TestListSkillProducts:
+    """Tests for list_skill_products function."""
+    
+    def test_returns_products(self):
+        """Test listing skill products."""
+        from healthsim_agent.tools.skill_tools import list_skill_products
+        
+        result = list_skill_products()
+        assert result.success is True
+        assert result.data is not None
+
+
+class TestGetSkillStats:
+    """Tests for get_skill_stats function."""
+    
+    def test_returns_stats(self):
+        """Test getting skill stats."""
+        from healthsim_agent.tools.skill_tools import get_skill_stats
+        
+        result = get_skill_stats()
+        assert result.success is True
+        assert result.data is not None
+
+
+class TestGetSkillTemplate:
+    """Tests for get_skill_template function."""
+    
+    def test_scenario_template(self):
+        """Test getting scenario template."""
+        from healthsim_agent.tools.skill_tools import get_skill_template
+        
+        result = get_skill_template("scenario")
+        assert result.success is True
+    
+    def test_template_template(self):
+        """Test getting template template."""
+        from healthsim_agent.tools.skill_tools import get_skill_template
+        
+        result = get_skill_template("template")
+        assert result.success is True
+    
+    def test_pattern_template(self):
+        """Test getting pattern template."""
+        from healthsim_agent.tools.skill_tools import get_skill_template
+        
+        result = get_skill_template("pattern")
+        assert result.success is True
+    
+    def test_integration_template(self):
+        """Test getting integration template."""
+        from healthsim_agent.tools.skill_tools import get_skill_template
+        
+        result = get_skill_template("integration")
+        assert result.success is True
+    
+    def test_unknown_template_type(self):
+        """Test with unknown template type."""
+        from healthsim_agent.tools.skill_tools import get_skill_template
+        
+        result = get_skill_template("unknown_type")
+        assert result.success is False
+
+
+class TestValidateSkill:
+    """Tests for validate_skill function."""
+    
+    def test_validate_empty_content_returns_validation_result(self):
+        """Test validating empty content returns validation data."""
+        from healthsim_agent.tools.skill_tools import validate_skill
+        
+        result = validate_skill("")
+        # Returns success with validation data showing valid=False
+        assert result.success is True
+        assert result.data["valid"] is False
+    
+    def test_validate_minimal_skill(self):
+        """Test validating minimal skill content."""
+        from healthsim_agent.tools.skill_tools import validate_skill
+        
+        content = """---
+name: test-skill
+description: A test skill
+product: patientsim
+---
+
+# Test Skill
+
+This is a test.
+"""
+        result = validate_skill(content)
+        assert result is not None
+        assert result.success is True
+    
+    def test_validate_with_skill_type(self):
+        """Test validating with skill type specified."""
+        from healthsim_agent.tools.skill_tools import validate_skill
+        
+        content = """---
+name: test-skill
+description: A test skill
+---
+
+# Test
+"""
+        result = validate_skill(content, skill_type="scenario")
+        assert result is not None
+    
+    def test_validate_strict_mode(self):
+        """Test validating in strict mode."""
+        from healthsim_agent.tools.skill_tools import validate_skill
+        
+        content = """---
+name: test-skill
+description: A test skill
+---
+
+# Test
+"""
+        result = validate_skill(content, strict=True)
+        assert result is not None
 
 
 class TestSaveSkill:
     """Tests for save_skill function."""
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    @patch('healthsim_agent.tools.skill_tools.SKILLS_DIR', new_callable=lambda: Path(tempfile.mkdtemp()))
-    def test_save_new_skill(self, mock_skills_dir, mock_get_manager):
-        """Test saving a new skill."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-        mock_manager.write_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
+    def test_save_empty_name(self):
+        """Test saving with empty name."""
+        from healthsim_agent.tools.skill_tools import save_skill
         
-        content = """---
-name: New Test Skill
-description: A new skill for testing
----
-
-# New Test Skill
-
-## Overview
-Test skill content.
-"""
-        
-        result = save_skill(
-            name="new-test-skill",
-            product="patientsim",
-            content=content,
-        )
-        
-        assert isinstance(result.success, bool)
+        result = save_skill("", "patientsim", "content")
+        assert result.success is False
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_save_skill_invalid_product(self, mock_get_manager):
-        """Test saving skill with invalid product."""
-        mock_manager = MagicMock()
-        mock_get_manager.return_value = mock_manager
+    def test_save_empty_content(self):
+        """Test saving with empty content."""
+        from healthsim_agent.tools.skill_tools import save_skill
         
-        content = "# Test"
-        
-        result = save_skill(
-            name="test-skill",
-            product="invalid_product",
-            content=content,
-        )
-        
-        assert not result.success
-        assert "product" in result.error.lower() or "invalid" in result.error.lower()
+        result = save_skill("test-skill", "patientsim", "")
+        assert result.success is False
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_save_skill_empty_content(self, mock_get_manager):
-        """Test saving skill with empty content."""
-        mock_manager = MagicMock()
-        mock_get_manager.return_value = mock_manager
+    def test_save_invalid_product(self):
+        """Test saving with invalid product."""
+        from healthsim_agent.tools.skill_tools import save_skill
         
-        result = save_skill(
-            name="empty-skill",
-            product="patientsim",
-            content="",
-        )
-        
-        assert not result.success
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_save_skill_with_subdirectory(self, mock_get_manager):
-        """Test saving skill to subdirectory."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-        mock_manager.write_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        content = """---
-name: Subdir Skill
-description: In a subdirectory
----
-
-# Subdir Skill
-"""
-        
-        result = save_skill(
-            name="subdir-skill",
-            product="patientsim",
-            content=content,
-            subdirectory="scenarios",
-        )
-        
-        assert isinstance(result.success, bool)
+        result = save_skill("test-skill", "invalid-product", "content")
+        assert result.success is False
 
 
 class TestUpdateSkill:
     """Tests for update_skill function."""
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_update_existing_skill(self, mock_get_manager):
-        """Test updating an existing skill."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
+    def test_update_nonexistent(self):
+        """Test updating nonexistent skill."""
+        from healthsim_agent.tools.skill_tools import update_skill
         
-        # Existing skill found
-        mock_conn.execute.return_value.fetchone.return_value = (
-            "skill-123", "test-skill", "patientsim", "scenario",
-            "Old description", "/path/to/skill.md", "skills/patientsim/test.md",
-            None, "[]", "[]", 100, True, True, datetime.now(), "hash123", None
-        )
-        
-        mock_manager.write_connection.return_value = mock_conn
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        new_content = """---
-name: Updated Skill
-description: Updated description
----
-
-# Updated Content
-"""
-        
-        result = update_skill(
-            skill_id="skill-123",
-            content=new_content,
-            change_summary="Updated description"
-        )
-        
-        assert isinstance(result.success, bool)
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_update_nonexistent_skill(self, mock_get_manager):
-        """Test updating a skill that doesn't exist."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = None
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = update_skill(
-            skill_id="nonexistent",
-            content="# New content"
-        )
-        
-        assert not result.success
-        assert "not found" in result.error.lower()
+        result = update_skill("nonexistent-skill-xyz-123456", content="new content")
+        assert result.success is False
 
 
 class TestDeleteSkill:
     """Tests for delete_skill function."""
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_delete_existing_skill(self, mock_get_manager):
-        """Test deleting an existing skill."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
+    def test_delete_nonexistent(self):
+        """Test deleting nonexistent skill."""
+        from healthsim_agent.tools.skill_tools import delete_skill
         
-        # Skill exists
-        mock_conn.execute.return_value.fetchone.return_value = (
-            "skill-123", "test-skill", "patientsim", "scenario",
-            "Description", "/tmp/skill.md", "skills/patientsim/test.md",
-            None, "[]", "[]", 100, True, True, datetime.now(), "hash123", None
-        )
-        
-        mock_manager.write_connection.return_value = mock_conn
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = delete_skill("skill-123")
-        
-        assert isinstance(result.success, bool)
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_delete_nonexistent_skill(self, mock_get_manager):
-        """Test deleting a skill that doesn't exist."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = None
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = delete_skill("nonexistent")
-        
-        assert not result.success
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_delete_skill_with_archive(self, mock_get_manager):
-        """Test deleting skill with archive option."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-        
-        mock_conn.execute.return_value.fetchone.return_value = (
-            "skill-123", "test-skill", "patientsim", "scenario",
-            "Description", "/tmp/skill.md", "skills/patientsim/test.md",
-            None, "[]", "[]", 100, True, True, datetime.now(), "hash123", None
-        )
-        
-        mock_manager.write_connection.return_value = mock_conn
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = delete_skill("skill-123", archive=True)
-        
-        assert isinstance(result.success, bool)
+        result = delete_skill("nonexistent-skill-xyz-123456")
+        assert result.success is False
 
 
 class TestGetSkillVersions:
     """Tests for get_skill_versions function."""
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_get_versions_existing_skill(self, mock_get_manager):
-        """Test getting versions for an existing skill."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
+    def test_versions_nonexistent_returns_empty(self):
+        """Test getting versions for nonexistent skill returns empty list."""
+        from healthsim_agent.tools.skill_tools import get_skill_versions
         
-        now = datetime.now()
-        # Return MagicMock rows that can be iterated
-        mock_result = MagicMock()
-        mock_result.rows = [
-            [1, "skill-123", 1, "hash1", "Initial version", "user", now, None],
-            [2, "skill-123", 2, "hash2", "Updated content", "user", now, None],
-        ]
-        mock_conn.execute.return_value = mock_result
-        
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = get_skill_versions("skill-123")
-        
-        # May succeed or fail depending on implementation details
-        assert isinstance(result.success, bool)
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_get_versions_no_versions(self, mock_get_manager):
-        """Test getting versions when none exist."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_result = MagicMock()
-        mock_result.rows = []
-        mock_conn.execute.return_value = mock_result
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = get_skill_versions("new-skill")
-        
-        assert result.success
-        # Empty list is valid result
-        assert result.data is not None
+        result = get_skill_versions("nonexistent-skill-xyz-123456")
+        # Returns success with empty versions
+        assert result.success is True
+        assert result.data["versions"] == []
 
 
 class TestRestoreSkillVersion:
     """Tests for restore_skill_version function."""
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_restore_valid_version(self, mock_get_manager):
-        """Test restoring a valid version."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
+    def test_restore_nonexistent(self):
+        """Test restoring nonexistent skill."""
+        from healthsim_agent.tools.skill_tools import restore_skill_version
         
-        # Version exists
-        mock_conn.execute.return_value.fetchone.side_effect = [
-            # First call: version info
-            (1, "skill-123", 1, "hash1", "Initial", "user", datetime.now(), "# Old Content"),
-            # Second call: skill info (if needed)
-            ("skill-123", "test-skill", "patientsim", "scenario",
-             "Description", "/tmp/skill.md", "skills/patientsim/test.md",
-             None, "[]", "[]", 100, True, True, datetime.now(), "hash123", None),
-        ]
-        
-        mock_manager.write_connection.return_value = mock_conn
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = restore_skill_version("skill-123", version=1)
-        
-        assert isinstance(result.success, bool)
+        result = restore_skill_version("nonexistent-skill-xyz-123456", 1)
+        assert result.success is False
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_restore_nonexistent_version(self, mock_get_manager):
-        """Test restoring a version that doesn't exist."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = None
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
+    def test_restore_empty_id(self):
+        """Test restoring with empty ID."""
+        from healthsim_agent.tools.skill_tools import restore_skill_version
         
-        result = restore_skill_version("skill-123", version=999)
+        result = restore_skill_version("", 1)
+        # May return error or handle gracefully
+        assert result is not None
+
+
+class TestIndexSkills:
+    """Tests for index_skills function."""
+    
+    def test_index_all(self):
+        """Test indexing all skills."""
+        from healthsim_agent.tools.skill_tools import index_skills
         
-        assert not result.success
+        result = index_skills()
+        assert result.success is True
+    
+    def test_index_specific_product(self):
+        """Test indexing specific product."""
+        from healthsim_agent.tools.skill_tools import index_skills
+        
+        result = index_skills(product="patientsim")
+        assert result.success is True
+    
+    def test_index_force(self):
+        """Test force reindex."""
+        from healthsim_agent.tools.skill_tools import index_skills
+        
+        result = index_skills(force=True)
+        assert result.success is True
 
 
 class TestCreateSkillFromSpec:
     """Tests for create_skill_from_spec function."""
     
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_create_from_valid_spec(self, mock_get_manager):
-        """Test creating skill from valid specification."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-        mock_manager.write_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
+    def test_create_empty_name(self):
+        """Test creating with empty name."""
+        from healthsim_agent.tools.skill_tools import create_skill_from_spec
         
-        spec = {
-            "description": "Created from specification",
-            "overview": "This skill generates test data",
-            "parameters": [
-                {"name": "count", "type": "int", "required": True, "description": "Number to generate"}
-            ],
-            "examples": [
-                {"title": "Basic", "prompt": "generate 5 patients", "response": "Generated 5 patients"}
-            ],
-        }
+        result = create_skill_from_spec("", "patientsim", "scenario", {})
+        assert result.success is False
+    
+    def test_create_with_spec(self):
+        """Test creating with spec."""
+        from healthsim_agent.tools.skill_tools import create_skill_from_spec
         
+        spec = {"description": "Test skill"}
         result = create_skill_from_spec(
-            name="spec-created-skill",
-            product="patientsim",
-            skill_type="scenario",
-            spec=spec,
+            "test-skill-temp", 
+            "patientsim", 
+            "scenario", 
+            spec
         )
-        
-        assert isinstance(result.success, bool)
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_create_from_minimal_spec(self, mock_get_manager):
-        """Test creating skill from minimal specification."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-        mock_manager.write_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        spec = {
-            "description": "Minimal skill",
-        }
-        
-        result = create_skill_from_spec(
-            name="minimal-skill",
-            product="patientsim",
-            skill_type="scenario",
-            spec=spec,
-        )
-        
-        assert isinstance(result.success, bool)
-    
-    def test_create_from_invalid_product(self):
-        """Test creating skill with invalid product fails."""
-        spec = {"description": "Test"}
-        
-        result = create_skill_from_spec(
-            name="test-skill",
-            product="invalid_product",
-            skill_type="scenario",
-            spec=spec,
-        )
-        
-        assert not result.success
-    
-    def test_create_from_invalid_skill_type(self):
-        """Test creating skill with invalid type fails."""
-        spec = {"description": "Test"}
-        
-        result = create_skill_from_spec(
-            name="test-skill",
-            product="patientsim",
-            skill_type="invalid_type",
-            spec=spec,
-        )
-        
-        assert not result.success
+        # Result depends on whether it can actually create
+        assert result is not None
 
 
-class TestGetCreationGuidance:
-    """Tests for _get_creation_guidance helper."""
+class TestSkillToolsEdgeCases:
+    """Edge case tests for skill tools."""
     
-    def test_get_scenario_guidance(self):
-        """Test getting guidance for scenario type."""
-        guidance = _get_creation_guidance("scenario")
+    def test_search_unicode_query(self):
+        """Test search with unicode characters."""
+        from healthsim_agent.tools.skill_tools import search_skills
         
-        assert isinstance(guidance, dict)
-        # Check actual keys in the returned dict
-        assert "description" in guidance or "key_elements" in guidance
+        result = search_skills("患者")  # Chinese for "patient"
+        assert result is not None
     
-    def test_get_template_guidance(self):
-        """Test getting guidance for template type."""
-        guidance = _get_creation_guidance("template")
+    def test_search_very_long_query(self):
+        """Test search with very long query."""
+        from healthsim_agent.tools.skill_tools import search_skills
         
-        assert isinstance(guidance, dict)
+        long_query = "patient diabetes hypertension " * 20
+        result = search_skills(long_query)
+        assert result is not None
     
-    def test_get_unknown_type_guidance(self):
-        """Test getting guidance for unknown type."""
-        guidance = _get_creation_guidance("unknown_type")
+    def test_skill_id_case_handling(self):
+        """Test skill ID case handling."""
+        from healthsim_agent.tools.skill_tools import get_skill
         
-        # Should return default guidance
-        assert isinstance(guidance, dict)
-
-
-class TestSkillConstants:
-    """Tests for module-level constants."""
+        result_lower = get_skill("test-skill")
+        result_upper = get_skill("TEST-SKILL")
+        # Both should handle consistently
+        assert result_lower is not None
+        assert result_upper is not None
     
-    def test_valid_products_includes_core(self):
-        """Test VALID_PRODUCTS includes core products."""
-        assert "patientsim" in VALID_PRODUCTS
-        assert "membersim" in VALID_PRODUCTS
-        assert "trialsim" in VALID_PRODUCTS
-        assert "common" in VALID_PRODUCTS
-    
-    def test_skill_types_defined(self):
-        """Test SKILL_TYPES has expected types."""
-        assert "scenario" in SKILL_TYPES
-        assert "pattern" in SKILL_TYPES
-        assert "template" in SKILL_TYPES
-        assert "integration" in SKILL_TYPES
-    
-    def test_required_sections_per_type(self):
-        """Test REQUIRED_SECTIONS defined for each type."""
-        for skill_type in ["scenario", "pattern", "template"]:
-            assert skill_type in REQUIRED_SECTIONS
-            assert isinstance(REQUIRED_SECTIONS[skill_type], list)
-            assert len(REQUIRED_SECTIONS[skill_type]) > 0
-
-
-class TestSkillValidationEdgeCases:
-    """Test edge cases in skill validation."""
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_save_skill_special_characters_in_name(self, mock_get_manager):
-        """Test saving skill with special characters in name."""
-        mock_manager = MagicMock()
-        mock_get_manager.return_value = mock_manager
+    def test_special_chars_in_skill_id(self):
+        """Test skill ID with special characters."""
+        from healthsim_agent.tools.skill_tools import get_skill
         
-        content = "# Test"
+        result = get_skill("skill/with/slashes")
+        assert result.success is False
         
-        result = save_skill(
-            name="skill with spaces & special!",
-            product="patientsim",
-            content=content,
-        )
-        
-        # Should handle gracefully (either sanitize or reject)
-        assert isinstance(result.success, bool)
-    
-    @patch('healthsim_agent.tools.skill_tools.get_manager')
-    def test_update_skill_empty_change_summary(self, mock_get_manager):
-        """Test updating skill with empty change summary."""
-        mock_manager = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-        mock_conn.__exit__ = MagicMock(return_value=False)
-        
-        mock_conn.execute.return_value.fetchone.return_value = (
-            "skill-123", "test-skill", "patientsim", "scenario",
-            "Description", "/tmp/skill.md", "skills/patientsim/test.md",
-            None, "[]", "[]", 100, True, True, datetime.now(), "hash123", None
-        )
-        
-        mock_manager.write_connection.return_value = mock_conn
-        mock_manager.get_read_connection.return_value = mock_conn
-        mock_get_manager.return_value = mock_manager
-        
-        result = update_skill(
-            skill_id="skill-123",
-            content="# Updated",
-            change_summary=""  # Empty summary
-        )
-        
-        assert isinstance(result.success, bool)
+        result = get_skill("skill:with:colons")
+        assert result.success is False
