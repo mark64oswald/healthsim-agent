@@ -65,7 +65,7 @@ def chat(ctx: click.Context) -> None:
         # Get provider count
         try:
             result = conn.execute(
-                "SELECT COUNT(*) FROM network.nppes_providers"
+                "SELECT COUNT(*) FROM network.providers"
             ).fetchone()
             provider_count = f"{result[0]:,.0f}" if result else "N/A"
         except:
@@ -143,13 +143,13 @@ def status(ctx: click.Context) -> None:
         # Provider count
         try:
             result = conn.execute(
-                "SELECT COUNT(*) FROM network.nppes_providers"
+                "SELECT COUNT(*) FROM network.providers"
             ).fetchone()
             prov_count = f"{result[0]:,}" if result else "0"
             table.add_row(
                 "NPPES Providers",
                 f"[green]{prov_count}[/green]",
-                "network.nppes_providers"
+                "network.providers"
             )
         except:
             table.add_row(
@@ -161,13 +161,13 @@ def status(ctx: click.Context) -> None:
         # Population data
         try:
             result = conn.execute(
-                "SELECT COUNT(*) FROM population.places"
+                "SELECT COUNT(*) FROM population.places_county"
             ).fetchone()
             places_count = f"{result[0]:,}" if result else "0"
             table.add_row(
                 "CDC PLACES",
                 f"[green]{places_count}[/green]",
-                "population.places"
+                "population.places_county"
             )
         except:
             table.add_row(

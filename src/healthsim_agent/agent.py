@@ -936,11 +936,14 @@ Guidelines:
                 messages=messages,
                 tools=TOOL_DEFINITIONS,
             ) as stream:
-                response = stream.get_final_message()
+                # Stream text as it arrives (must iterate BEFORE get_final_message)
                 for text in stream.text_stream:
                     if on_text:
                         on_text(text)
                     full_response += text
+                
+                # Get final message AFTER streaming text
+                response = stream.get_final_message()
         
         # Final text extraction
         final_text = self._extract_text(response)
