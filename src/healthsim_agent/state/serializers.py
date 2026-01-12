@@ -336,7 +336,7 @@ def serialize_subject(entity: dict[str, Any], provenance: dict | None = None) ->
     
     return {
         'subject_id': entity.get('subject_id') or entity.get('id') or str(uuid4()),
-        'study_id': entity.get('study_id'),
+        'study_id': entity.get('study_id') or entity.get('protocol_id'),
         'site_id': entity.get('site_id'),
         'ssn': entity.get('ssn'),
         'screening_id': entity.get('screening_id'),

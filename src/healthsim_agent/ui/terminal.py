@@ -620,20 +620,59 @@ class TerminalUI:
                                 self.show_result_warning("Drug not covered")
                             if data.get("alternatives"):
                                 self.console.print(f"[dim]Alternatives: {', '.join(data['alternatives'][:3])}[/dim]")
+                        elif name == "query_reference" and isinstance(data, dict):
+                            # PopulationSim reference data query
+                            table_name = data.get("table", "reference")
+                            row_count = data.get("row_count", 0)
+                            self.show_result_success(f"Found {row_count} rows from {table_name}")
+                            # Show data table preview
+                            rows = data.get("rows", [])
+                            columns = data.get("columns", [])
+                            if rows and columns:
+                                from rich.table import Table
+                                table = Table(show_header=True, header_style="bold cyan", title=f"[dim]{table_name}[/dim]")
+                                # Limit columns for display
+                                display_cols = columns[:8]
+                                for col in display_cols:
+                                    table.add_column(col)
+                                if len(columns) > 8:
+                                    table.add_column("...")
+                                for row in rows[:10]:  # Limit rows
+                                    row_values = [str(row.get(c, ""))[:30] for c in display_cols]
+                                    if len(columns) > 8:
+                                        row_values.append("...")
+                                    table.add_row(*row_values)
+                                self.console.print(table)
+                                if row_count > 10:
+                                    self.console.print(f"[dim]... and {row_count - 10} more rows[/dim]")
                         elif name.startswith("generate_") and isinstance(data, dict):
-                            # Generation tools return generated entities
+                            # Generation tools return entities under their type key (e.g., "patients", "members")
                             entity_type = name.replace("generate_", "")
-                            count = data.get("count", len(data.get("entities", [])))
+                            # Look for entities under their type key
+                            primary_key = entity_type  # e.g., "patients", "members", "subjects", "rx_members"
+                            entities = data.get(primary_key, data.get("entities", []))
+                            count = len(entities) if entities else data.get("count", 0)
                             self.show_result_success(f"Generated {count} {entity_type}")
+                            # Show summary of what was generated
+                            if data:
+                                entity_summary = []
+                                for key, value in data.items():
+                                    if isinstance(value, list) and value:
+                                        entity_summary.append(f"{len(value)} {key}")
+                                if entity_summary:
+                                    self.console.print(f"[dim]Contains: {', '.join(entity_summary)}[/dim]")
                             # Show preview of first entity
-                            entities = data.get("entities", [])
                             if entities:
                                 import json
                                 from rich.panel import Panel
                                 from rich.syntax import Syntax
                                 preview = json.dumps(entities[0], indent=2, default=str)[:1000]
+                                if len(json.dumps(entities[0], indent=2, default=str)) > 1000:
+                                    preview += "\n..."
                                 syntax = Syntax(preview, "json", theme="monokai", line_numbers=False)
-                                panel = Panel(syntax, title=f"[bold cyan]Sample {entity_type[:-1]}[/bold cyan]", border_style="dim")
+                                # Singularize entity type for label
+                                singular = entity_type.rstrip('s') if entity_type.endswith('s') else entity_type
+                                panel = Panel(syntax, title=f"[bold cyan]Sample {singular}[/bold cyan]", border_style="dim")
                                 self.console.print(panel)
                         else:
                             self.show_result_success(f"{name} completed")

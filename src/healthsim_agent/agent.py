@@ -149,22 +149,26 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "query_reference",
-        "description": "Query PopulationSim reference data (CDC PLACES, SVI, ADI).",
+        "description": "Query PopulationSim reference data tables: places_county, places_tract (CDC PLACES health indicators), svi_county, svi_tract (Social Vulnerability Index), adi_blockgroup (Area Deprivation Index).",
         "input_schema": {
             "type": "object",
             "properties": {
-                "dataset": {
+                "table": {
                     "type": "string",
-                    "enum": ["places", "svi", "adi", "acs"],
-                    "description": "Reference dataset"
+                    "enum": ["places_county", "places_tract", "svi_county", "svi_tract", "adi_blockgroup"],
+                    "description": "Reference table name"
                 },
-                "filters": {
-                    "type": "object",
-                    "description": "Filter conditions, e.g. {'state': 'TX', 'city': 'Austin'}"
+                "state": {
+                    "type": "string",
+                    "description": "Filter by 2-letter state code (e.g., 'CA', 'TX')"
                 },
-                "limit": {"type": "integer", "default": 100}
+                "county": {
+                    "type": "string",
+                    "description": "Filter by county name (partial match)"
+                },
+                "limit": {"type": "integer", "default": 20, "description": "Max rows (1-100)"}
             },
-            "required": ["dataset"]
+            "required": ["table"]
         }
     },
     {
@@ -886,14 +890,14 @@ Guidelines:
             messages=messages,
             tools=TOOL_DEFINITIONS,
         ) as stream:
-            # Collect the full message
-            response = stream.get_final_message()
-            
-            # Stream text as it arrives
+            # Stream text as it arrives (must iterate BEFORE get_final_message)
             for text in stream.text_stream:
                 if on_text:
                     on_text(text)
                 full_response += text
+            
+            # Get final message AFTER streaming text
+            response = stream.get_final_message()
         
         # Handle tool calls
         while response.stop_reason == "tool_use":
