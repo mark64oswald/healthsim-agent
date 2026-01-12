@@ -12,8 +12,8 @@ from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 
-class TestParseDate:
-    """Tests for _parse_date helper function."""
+class TestParseDateExtended:
+    """Extended tests for _parse_date helper function."""
     
     def test_date_passthrough(self):
         """Test date object passes through."""
@@ -54,8 +54,8 @@ class TestParseDate:
         assert _parse_date('not-a-date') is None
 
 
-class TestParseDatetime:
-    """Tests for _parse_datetime helper function."""
+class TestParseDatetimeExtended:
+    """Extended tests for _parse_datetime helper function."""
     
     def test_datetime_passthrough(self):
         """Test datetime object passes through."""
@@ -93,8 +93,8 @@ class TestParseDatetime:
         assert _parse_datetime('invalid') is None
 
 
-class TestParseGender:
-    """Tests for _parse_gender helper function."""
+class TestParseGenderExtended:
+    """Extended tests for _parse_gender helper function."""
     
     def test_gender_enum_passthrough(self):
         """Test Gender enum passes through."""
@@ -141,8 +141,8 @@ class TestParseGender:
         assert _parse_gender(123) == Gender.UNKNOWN
 
 
-class TestParseEncounterClass:
-    """Tests for _parse_encounter_class helper function."""
+class TestParseEncounterClassExtended:
+    """Extended tests for _parse_encounter_class helper function."""
     
     def test_enum_passthrough(self):
         """Test enum passes through."""
@@ -186,8 +186,8 @@ class TestParseEncounterClass:
         assert _parse_encounter_class('UNKNOWN') == EncounterClass.OUTPATIENT
 
 
-class TestDictToPatient:
-    """Tests for _dict_to_patient helper function."""
+class TestDictToPatientExtended:
+    """Extended tests for _dict_to_patient helper function."""
     
     def test_basic_patient(self):
         """Test converting basic patient dict."""
@@ -273,8 +273,8 @@ class TestDictToPatient:
         assert patient.address.state == 'MA'
 
 
-class TestDictToEncounter:
-    """Tests for _dict_to_encounter helper function."""
+class TestDictToEncounterExtended:
+    """Extended tests for _dict_to_encounter helper function."""
     
     def test_basic_encounter(self):
         """Test converting basic encounter dict."""
@@ -314,8 +314,8 @@ class TestDictToEncounter:
         assert encounter.chief_complaint == 'Chest pain'
 
 
-class TestDictToDiagnosis:
-    """Tests for _dict_to_diagnosis helper function."""
+class TestDictToDiagnosisExtended:
+    """Extended tests for _dict_to_diagnosis helper function."""
     
     def test_basic_diagnosis(self):
         """Test converting basic diagnosis dict."""
@@ -354,8 +354,8 @@ class TestDictToDiagnosis:
         assert diagnosis.patient_mrn == 'P001'
 
 
-class TestResolveData:
-    """Tests for _resolve_data helper function."""
+class TestResolveDataExtended:
+    """Extended tests for _resolve_data helper function."""
     
     def test_dict_passthrough(self):
         """Test dict data passes through."""
@@ -374,8 +374,8 @@ class TestResolveData:
         assert _resolve_data([]) is None
 
 
-class TestTransformToFhir:
-    """Tests for transform_to_fhir function."""
+class TestTransformToFhirExtended:
+    """Extended tests for transform_to_fhir function."""
     
     def test_empty_data_error(self):
         """Test error when no data provided."""
@@ -414,8 +414,8 @@ class TestTransformToFhir:
         assert result.data['resourceType'] == 'Bundle'
 
 
-class TestTransformToCcda:
-    """Tests for transform_to_ccda function."""
+class TestTransformToCcdaExtended:
+    """Extended tests for transform_to_ccda function."""
     
     def test_empty_data_error(self):
         """Test error when no data provided."""

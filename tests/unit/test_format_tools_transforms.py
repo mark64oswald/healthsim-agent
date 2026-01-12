@@ -415,8 +415,8 @@ class TestTransformToAdam:
         assert result.success is True
 
 
-class TestListOutputFormats:
-    """Tests for list_output_formats function."""
+class TestListOutputFormatsTransforms:
+    """Tests for list_output_formats function in transforms."""
     
     def test_returns_format_dict(self):
         """Test that function returns format dictionary."""
