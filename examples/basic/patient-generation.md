@@ -1,19 +1,25 @@
 # Patient Generation Example
 
-Generate synthetic patients with clinical data.
+Learn the fundamentals of generating patients with HealthSim.
 
 ---
 
 ## Goal
 
-Learn how to generate patients with diagnoses, medications, and lab results using HealthSim.
+Create realistic patient records with demographics, conditions, and encounters. You'll learn:
+
+- Basic patient generation syntax
+- Adding conditions and diagnoses
+- Creating encounters
+- Viewing and exporting data
 
 ---
 
 ## Prerequisites
 
-- HealthSim installed (`pip install healthsim-agent`)
-- API key configured (`ANTHROPIC_API_KEY`)
+- HealthSim installed and running
+- API key configured
+- ~5 minutes
 
 ---
 
@@ -25,234 +31,212 @@ Learn how to generate patients with diagnoses, medications, and lab results usin
 healthsim
 ```
 
-You should see the welcome screen and `healthsim ›` prompt.
-
-### Step 2: Generate a Basic Patient
-
+You'll see:
 ```
-healthsim › Generate a 50-year-old male patient with hypertension
-```
+HealthSim Agent v0.1.0
 
-Expected output:
-```
-✓ Added 1 patient
+175 skills loaded
+Database: reference data ready
 
-  ID:        PAT-001
-  Name:      Michael Thompson
-  Age:       50 (DOB: 1975-06-12)
-  Gender:    Male
-  
-  Diagnoses:
-    • I10     Essential hypertension
-  
-  Medications:
-    • Lisinopril 10mg PO daily
-  
-  Recent Labs:
-    • BMP within normal limits
+healthsim ›
 ```
 
-### Step 3: Generate a Patient with Multiple Conditions
+### Step 2: Generate Your First Patient
 
 ```
-healthsim › Generate a 65-year-old female with Type 2 diabetes and heart failure
+healthsim › Create a 45-year-old female patient in Seattle with type 2 diabetes
 ```
 
 Expected output:
 ```
-✓ Added 1 patient
+✓ Generated patient
 
-  ID:        PAT-002
-  Name:      Barbara Wilson
-  Age:       65 (DOB: 1960-03-28)
-  Gender:    Female
+Patient: PAT-001
+  Name: Maria Chen
+  Age: 45 years
+  Sex: Female
+  Location: Seattle, WA 98101
   
-  Diagnoses:
-    • E11.9   Type 2 diabetes mellitus
-    • I50.9   Heart failure, unspecified
-    • I10     Essential hypertension
-    • E78.5   Hyperlipidemia
-  
-  Medications:
-    • Metformin 1000mg PO BID
-    • Lisinopril 20mg PO daily
-    • Carvedilol 12.5mg PO BID
-    • Furosemide 40mg PO daily
-    • Atorvastatin 40mg PO QHS
-  
-  Recent Labs:
-    • HbA1c: 7.4% (elevated)
-    • BNP: 450 pg/mL (elevated)
-    • Creatinine: 1.2 mg/dL
-    • eGFR: 58 mL/min
+Conditions:
+  • Type 2 diabetes mellitus (E11.9) - Active since 2019
 ```
 
-### Step 4: Generate a Specific Clinical Scenario
+### Step 3: Add a Comorbid Condition
 
 ```
-healthsim › Generate a 45-year-old with newly diagnosed breast cancer, 
-           Stage IIA, ER-positive, HER2-negative
+healthsim › Add hypertension to this patient
 ```
 
 Expected output:
 ```
-✓ Added 1 patient
+✓ Added condition to PAT-001
 
-  ID:        PAT-003
-  Name:      Jennifer Martinez
-  Age:       45 (DOB: 1980-11-05)
-  Gender:    Female
-  
-  Diagnoses:
-    • C50.911  Malignant neoplasm of breast
-    • Z85.3    Personal history of malignant neoplasm of breast
-  
-  Cancer Details:
-    Stage:     IIA (T2N0M0)
-    Histology: Invasive ductal carcinoma
-    Grade:     2 (moderately differentiated)
-    
-  Biomarkers:
-    • ER: 95% (Positive)
-    • PR: 80% (Positive)
-    • HER2: 1+ (Negative)
-    • Ki-67: 15%
-    
-  Treatment Plan:
-    • Surgery: Lumpectomy with sentinel node biopsy
-    • Radiation: Whole breast radiation planned
-    • Systemic: Adjuvant hormonal therapy (tamoxifen)
+Conditions (2):
+  • Type 2 diabetes mellitus (E11.9) - Active since 2019
+  • Essential hypertension (I10) - Active since 2021
 ```
 
-### Step 5: Check Your Session
+### Step 4: Create an Encounter
+
+```
+healthsim › Add an office visit for diabetes management
+```
+
+Expected output:
+```
+✓ Added encounter
+
+Encounter: ENC-001
+  Type: Office Visit (99214)
+  Date: 2026-01-10
+  Provider: Dr. Sarah Johnson, MD (Internal Medicine)
+  Reason: Diabetes management
+  
+Diagnoses:
+  • E11.9 - Type 2 diabetes mellitus
+  • I10 - Essential hypertension
+```
+
+### Step 5: Add a Lab Order
+
+```
+healthsim › Add HbA1c and lipid panel lab results from this visit
+```
+
+Expected output:
+```
+✓ Added lab results
+
+Lab Results (ENC-001):
+  HbA1c: 7.2% (reference: <7.0%)
+  Total Cholesterol: 195 mg/dL (reference: <200)
+  LDL: 118 mg/dL (reference: <100)
+  HDL: 48 mg/dL (reference: >40)
+  Triglycerides: 145 mg/dL (reference: <150)
+```
+
+### Step 6: View Your Work
 
 ```
 healthsim › /status
 ```
 
-Expected output:
 ```
 Current Session
 ═══════════════════════════════════════
-Patients:     3
-Encounters:   0
-Claims:       0
-Pharmacy:     0
+Patients:     1
+Encounters:   1
+Observations: 5 (Lab Results)
+Conditions:   2
 
-Recent Activity:
-  • PAT-001 (Michael Thompson) - Hypertension
-  • PAT-002 (Barbara Wilson) - T2DM, Heart Failure
-  • PAT-003 (Jennifer Martinez) - Breast Cancer
+Total Entities: 9
+═══════════════════════════════════════
 ```
 
-### Step 6: Save Your Work
+### Step 7: Export to FHIR
 
 ```
-healthsim › save as patient-examples
-
-✓ Saved session 'patient-examples'
+healthsim › Export as FHIR bundle
 ```
 
-### Step 7: Export as FHIR
-
 ```
-healthsim › Export as FHIR R4
-```
+✓ Exported FHIR bundle
 
-Expected output:
-```
-✓ Generated FHIR R4 Bundle → output/patients-bundle.json
-
-  Bundle Type: collection
-  Resources:
-    • 3 Patient resources
-    • 8 Condition resources
-    • 12 MedicationRequest resources
-    • 6 Observation resources
+Output: ./exports/patient-bundle-20260112.json
+Format: FHIR R4 Bundle
+Resources: 9 (Patient, Conditions, Encounter, Observations)
 ```
 
 ---
 
 ## What You Created
 
-| Patient | Age | Gender | Primary Conditions |
-|---------|-----|--------|-------------------|
-| PAT-001 | 50 | M | Hypertension |
-| PAT-002 | 65 | F | Diabetes, Heart Failure |
-| PAT-003 | 45 | F | Breast Cancer (Stage IIA) |
-
-Total: 3 patients with clinically appropriate comorbidities, medications, and labs.
+| Entity | Count | Details |
+|--------|-------|---------|
+| Patient | 1 | 45F, Seattle |
+| Conditions | 2 | Diabetes, Hypertension |
+| Encounter | 1 | Office visit |
+| Observations | 5 | HbA1c, Lipid panel |
 
 ---
 
 ## Variations
 
-### Generate with specific location
+### Different Demographics
 
 ```
-Generate a 70-year-old diabetic patient in Miami, Florida
+healthsim › Create a 72-year-old male veteran in Phoenix with COPD and heart failure
 ```
 
-### Generate multiple at once
+### Pediatric Patient
 
 ```
-Generate 5 patients with varying ages and chronic conditions
+healthsim › Create an 8-year-old patient with asthma who has had 3 ER visits this year
 ```
 
-### Generate with specific identifiers
+### Complex History
 
 ```
-Generate a patient with MRN starting with "TEST-"
+healthsim › Create a patient with a complete 5-year medical history including 
+            annual checkups, two hospitalizations, and chronic disease management
 ```
 
-### Generate pediatric patient
+### Multiple Patients
 
 ```
-Generate an 8-year-old with Type 1 diabetes
-```
-
-### Generate elderly with polypharmacy
-
-```
-Generate an 85-year-old with 5+ chronic conditions and appropriate medications
+healthsim › Generate 10 patients in Chicago with varying diabetes severity
 ```
 
 ---
 
-## Common Issues
+## Common Patterns
 
-### Patient lacks expected medications
+### Adding Medications
 
-Try:
 ```
-Generate a diabetic patient with all guideline-recommended medications
-```
-
-### Labs not included
-
-Try:
-```
-Generate a patient with recent lab results showing disease control
+healthsim › Add metformin 1000mg twice daily for diabetes management
 ```
 
-### Need specific codes
+### Adding Procedures
 
-Try:
 ```
-Generate a patient with ICD-10 code E11.65 (diabetes with hyperglycemia)
+healthsim › Add an ophthalmology referral and dilated eye exam
+```
+
+### Adding Family History
+
+```
+healthsim › Add family history of coronary artery disease (father) and breast cancer (mother)
 ```
 
 ---
 
-## Related Examples
+## Troubleshooting
 
-- [Claims Generation](claims-generation.md) - Add claims for these patients
-- [Pharmacy Claims](pharmacy-claims.md) - Generate prescription fills
-- [Cross-Product Workflow](../intermediate/cross-product-workflow.md) - Complete patient journey
+**Patient not generating?**
+- Check that you provided enough context (age, location, or condition)
+- Try being more specific about demographics
+
+**Wrong condition code?**
+- HealthSim uses ICD-10-CM codes automatically
+- You can specify a code: "Add diagnosis I10 (hypertension)"
+
+**Need more realistic data?**
+- Add more context about lifestyle, occupation, family history
+- HealthSim will generate more detailed realistic attributes
 
 ---
 
-## Related Guides
+## Next Steps
 
-- [PatientSim Guide](../../docs/guides/patientsim-guide.md) - Complete PatientSim reference
-- [Quick Reference](../../docs/getting-started/quick-reference.md) - Command cheat sheet
+- [Claims Generation](claims-generation.md) - Add insurance claims
+- [Pharmacy Claims](pharmacy-claims.md) - Add pharmacy transactions
+- [Cross-Product Workflow](../intermediate/cross-product-workflow.md) - Full patient journey
+
+---
+
+## Related
+
+- [PatientSim Guide](../../docs/guides/patientsim-guide.md)
+- [Output Formats Reference](../../docs/reference/output-formats.md)
+- [Code Systems Reference](../../docs/reference/code-systems.md)
