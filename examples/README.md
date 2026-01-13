@@ -15,6 +15,8 @@ Simple, focused examples for learning the fundamentals.
 | [Patient Generation](basic/patient-generation.md) | Create patients with conditions | PatientSim |
 | [Claims Generation](basic/claims-generation.md) | Generate professional claims | MemberSim |
 | [Pharmacy Claims](basic/pharmacy-claims.md) | Create pharmacy transactions | RxMemberSim |
+| [Pharmacy Generation](basic/pharmacy-generation.md) | Generate Rx data scenarios | RxMemberSim |
+| [Provider Search](basic/provider-search.md) | Find and use provider data | NetworkSim |
 
 ### 🟡 Intermediate Examples
 
@@ -34,6 +36,9 @@ Complex use cases and integration patterns.
 
 | Example | Description | Focus |
 |---------|-------------|-------|
+| [Clinical Trial Protocol](advanced/clinical-trial-protocol.md) | Design trial protocols | TrialSim |
+| [Full Data Pipeline](advanced/full-data-pipeline.md) | End-to-end workflows | All |
+| [Population Study](advanced/population-study.md) | SDOH and demographics | PopulationSim |
 | [Custom Skills](advanced/custom-skills.md) | Create your own skills | Extension |
 | [Batch Generation](advanced/batch-generation.md) | Generate data at scale | Performance |
 | [Integration Testing](advanced/integration-testing.md) | CI/CD integration | DevOps |
@@ -66,14 +71,14 @@ What this example demonstrates.
 ## Steps
 
 ### Step 1: [Action]
-\`\`\`
+```
 healthsim › [command]
-\`\`\`
+```
 
 Expected output:
-\`\`\`
+```
 [output]
-\`\`\`
+```
 
 ### Step 2: [Action]
 ...
@@ -107,7 +112,7 @@ healthsim › Add an office visit for diabetes follow-up
 
 healthsim › Generate a professional claim for this visit
 
-✓ Added 1 claim (CLM-2026-000001, $175.00)
+✓ Added 1 claim (CLM-2025-000001, $175.00)
 
 healthsim › Add pharmacy claims for metformin and lisinopril
 
@@ -149,16 +154,28 @@ Total time: ~2 minutes.
 ### PBM/Pharmacy Testing
 
 - [Pharmacy Claims](basic/pharmacy-claims.md) - Basic Rx claims
+- [Pharmacy Generation](basic/pharmacy-generation.md) - Rx scenarios
 - [Cross-Product Workflow](intermediate/cross-product-workflow.md) - Medical + Pharmacy
 
 ### Analytics & Reporting
 
 - [Cohort Analytics](intermediate/cohort-analytics.md) - Cohort analysis
 - [Star Schema Analytics](advanced/star-schema-analytics.md) - Dimensional data
+- [Population Study](advanced/population-study.md) - SDOH analytics
 
 ### Clinical Trial Systems
 
-- Coming soon: Trial scenarios with SDTM/ADaM
+- [Clinical Trial Protocol](advanced/clinical-trial-protocol.md) - Trial design
+- [Full Data Pipeline](advanced/full-data-pipeline.md) - End-to-end
+
+### Provider Networks
+
+- [Provider Search](basic/provider-search.md) - Find providers
+
+### DevOps & Integration
+
+- [Integration Testing](advanced/integration-testing.md) - CI/CD patterns
+- [Custom Skills](advanced/custom-skills.md) - Extend HealthSim
 
 ---
 
