@@ -1,365 +1,241 @@
-# Denial Scenarios Example
+# Denial Scenarios
 
-Generate claims denial scenarios for testing adjudication logic and appeals workflows.
+Generate claims denial scenarios for testing payer systems, appeals workflows, and exception handling.
 
 ---
 
 ## Goal
 
-Create realistic claim denials with:
-
-- Common denial reasons and CARC/RARC codes
-- Prior authorization failures
-- Medical necessity denials
-- Out-of-network scenarios
-- Appeals and corrected claims
-
----
+Create realistic denied claims with proper denial reason codes, appeal information, and resolution pathways.
 
 ## Prerequisites
 
-- HealthSim installed and running
-- Familiarity with [Claims Generation](../basic/claims-generation.md)
-- ~15 minutes
+- HealthSim Agent installed and configured
+- Familiarity with basic claims generation
 
 ---
 
-## Steps
+## Example 1: Prior Authorization Required
 
-### Step 1: Create a Member
-
-```
-healthsim › Create a member with Aetna HMO coverage requiring referrals
-```
-
-Expected output:
-```
-✓ Generated member
-
-Member: MBR-001
-  Name: David Chen
-  DOB: 1980-04-12 (45 years)
-  
-Coverage: Aetna HMO Select
-  Member ID: AET774829156
-  PCP Required: Yes
-  Referral Required: Yes for specialists
-  Prior Auth: Required for imaging, procedures
-```
-
-### Step 2: Denial - No Referral
+### Step 1: Generate Denied Claim
 
 ```
-healthsim › Generate a specialist visit without the required referral
+healthsim › Generate a denied professional claim for MRI requiring prior authorization
 ```
 
 Expected output:
-```
-✓ Generated denied claim
-
-Claim: CLM-2026-000001
-  Status: DENIED
-  Provider: Dr. Lisa Park, MD (Dermatology)
-  Service: 99203 (New patient, office visit)
-  Billed: $225.00
-  
-Denial Details:
-  CARC: 96 (Non-covered charge)
-  RARC: N290 (Missing/incomplete referral)
-  Remark: "Services require referral from PCP. No referral on file."
-  
-835 Adjustment:
-  PR-96: $225.00 (Patient responsibility - non-covered)
-  
-Patient Impact: Full balance billing ($225.00)
-```
-
-### Step 3: Denial - Prior Auth Required
-
-```
-healthsim › Generate an MRI claim denied for missing prior authorization
-```
-
-Expected output:
-```
-✓ Generated denied claim
-
-Claim: CLM-2026-000002
-  Status: DENIED
-  Facility: Metro Imaging Center
-  Service: 72148 (MRI lumbar spine w/o contrast)
-  Billed: $2,400.00
-  
-Denial Details:
-  CARC: 197 (Precertification/authorization absent)
-  RARC: N386 (Authorization number not provided)
-  Remark: "Prior authorization required. No valid auth on file."
-  
-835 Adjustment:
-  CO-197: $2,400.00 (Contractual - no auth)
-  
-Patient Impact: $0 (facility must obtain auth or write off)
+```json
+{
+  "member": {
+    "member_id": "MEM002345",
+    "name": { "given_name": "Michael", "family_name": "Chen" },
+    "plan_code": "HMO-PLUS"
+  },
+  "claim": {
+    "claim_id": "CLM-2025-000002",
+    "claim_type": "PROFESSIONAL",
+    "service_date": "2025-01-15",
+    "place_of_service": "22",
+    "principal_diagnosis": "M54.5",
+    "diagnosis_description": "Low back pain",
+    "claim_lines": [
+      {
+        "line_number": 1,
+        "procedure_code": "72148",
+        "procedure_description": "MRI lumbar spine without contrast",
+        "charge_amount": 1500.00
+      }
+    ],
+    "prior_auth_number": null
+  },
+  "adjudication": {
+    "status": "denied",
+    "adjudication_date": "2025-01-17",
+    "denial_reason": {
+      "code": "CO-15",
+      "description": "Authorization required",
+      "message": "Prior authorization is required for this service."
+    },
+    "allowed_amount": 0.00,
+    "paid_amount": 0.00,
+    "patient_responsibility": 0.00,
+    "appeal_info": {
+      "can_appeal": true,
+      "appeal_deadline": "2025-07-17",
+      "instructions": "Submit prior authorization or appeal with medical records"
+    }
+  }
+}
 ```
 
-### Step 4: Denial - Medical Necessity
+### Key Points
+
+- CO-15 = Authorization required
+- Patient responsibility is $0 (not billed to member)
+- Appeal information provided with deadline
+- HMO plans commonly require PA for imaging
+
+---
+
+## Example 2: Duplicate Submission
+
+### Generate Duplicate Denial
 
 ```
-healthsim › Generate a claim denied for lack of medical necessity - 
-            requesting cosmetic procedure
-```
-
-Expected output:
-```
-✓ Generated denied claim
-
-Claim: CLM-2026-000003
-  Status: DENIED
-  Provider: Dr. Robert Kim, MD (Plastic Surgery)
-  Service: 15823 (Blepharoplasty, upper eyelid)
-  Diagnosis: H02.839 (Dermatochalasis, unspecified)
-  Billed: $3,800.00
-  
-Denial Details:
-  CARC: 50 (Non-covered - not medically necessary)
-  RARC: N115 (Service not supported by diagnosis)
-  Remark: "Procedure not medically necessary based on submitted 
-           diagnosis. Documentation does not support functional 
-           impairment."
-  
-Medical Policy: Blepharoplasty requires documentation of:
-  - Visual field deficit > 30%
-  - Photographic evidence
-  - Failed conservative treatment
-  
-835 Adjustment:
-  CO-50: $3,800.00 (Contractual - not medically necessary)
-  
-Patient Impact: May appeal with additional documentation
-```
-
-### Step 5: Denial - Out of Network
-
-```
-healthsim › Generate an out-of-network ER claim with balance billing
+healthsim › Generate a denied claim for duplicate submission (CO-18)
 ```
 
 Expected output:
-```
-✓ Generated partially denied claim
-
-Claim: CLM-2026-000004
-  Status: PARTIAL PAY (OON)
-  Facility: Community Hospital (Non-participating)
-  Service: 99284 (ED visit, high severity)
-  Billed: $1,850.00
-  
-Processing (Out-of-Network):
-  UCR Allowed: $650.00 (70% of in-network rate)
-  OON Deductible: $500.00 (separate from in-network)
-  Coinsurance: 40% = $60.00
-  Plan Paid: $90.00
-  
-Denial Details (Balance):
-  CARC: 45 (Charge exceeds UCR)
-  RARC: N381 (Balance billing allowed)
-  Balance Billed: $1,200.00
-  
-835 Payment:
-  Payment: $90.00
-  PR-1: $500.00 (Deductible)
-  PR-2: $60.00 (Coinsurance)
-  CO-45: $1,200.00 (Non-covered excess)
-  
-Patient Impact: 
-  Plan cost share: $560.00
-  Balance bill: $1,200.00
-  Total: $1,760.00
-```
-
-### Step 6: Denial - Duplicate Claim
-
-```
-healthsim › Submit the same claim twice to show duplicate denial
-```
-
-Expected output:
-```
-✓ Generated denied claim (duplicate)
-
-Claim: CLM-2026-000005
-  Status: DENIED (Duplicate)
-  Original Claim: CLM-2026-000001
-  
-Denial Details:
-  CARC: 18 (Duplicate claim/service)
-  RARC: MA130 (Duplicate of a claim processed)
-  Remark: "This claim/service duplicates one already processed."
-  
-835 Adjustment:
-  OA-18: $225.00 (Other adjustment - duplicate)
-  
-Action Required: None - original claim on file
-```
-
-### Step 7: Denial - Timely Filing
-
-```
-healthsim › Generate a claim denied for timely filing (submitted too late)
-```
-
-Expected output:
-```
-✓ Generated denied claim (timely filing)
-
-Claim: CLM-2026-000006
-  Status: DENIED
-  Service Date: 2024-06-15
-  Received Date: 2026-01-10
-  Days from DOS: 574 days
-  Filing Limit: 365 days
-  
-Denial Details:
-  CARC: 29 (Time limit for filing expired)
-  RARC: N96 (Claim not received within filing deadline)
-  Remark: "Claim received 574 days from date of service. 
-           Filing limit is 365 days from DOS."
-  
-835 Adjustment:
-  CO-29: Full billed amount (Contractual write-off)
-  
-Patient Impact: $0 (provider must write off)
-```
-
-### Step 8: Process an Appeal
-
-```
-healthsim › Appeal the medical necessity denial with additional documentation
-```
-
-Expected output:
-```
-✓ Generated appeal and reconsideration
-
-Appeal: APL-2026-000001
-  Original Claim: CLM-2026-000003
-  Appeal Type: Level 1 - Reconsideration
-  
-Additional Documentation Submitted:
-  - Visual field test showing 35% deficit
-  - Pre-operative photographs
-  - Letter of medical necessity from ophthalmologist
-  
-Appeal Decision: APPROVED
-  Rationale: "Additional documentation supports functional 
-              impairment meeting medical policy criteria."
-  
-Corrected Claim: CLM-2026-000003-R1
-  Status: PAID
-  Allowed: $2,850.00
-  Deductible: $150.00 (remaining)
-  Coinsurance: $540.00 (20%)
-  Plan Paid: $2,160.00
-  
-New 835 Generated: Payment remittance for corrected claim
-```
-
-### Step 9: View Denial Summary
-
-```
-healthsim › /status
-```
-
-```
-Current Session: Denial Scenarios
-═══════════════════════════════════════
-Members:       1
-Claims:        6
-  Paid:        1 (after appeal)
-  Denied:      5
-  
-Denial Breakdown:
-  No Referral:        1
-  No Prior Auth:      1
-  Medical Necessity:  1 (reversed on appeal)
-  Out of Network:     1 (partial)
-  Duplicate:          1
-  Timely Filing:      1
-  
-Appeals:       1 (approved)
-═══════════════════════════════════════
+```json
+{
+  "adjudication": {
+    "status": "denied",
+    "denial_reason": {
+      "code": "CO-18",
+      "description": "Exact duplicate claim/service",
+      "message": "This service was previously submitted and processed.",
+      "original_claim_id": "CLM-2025-000001"
+    },
+    "resolution": "Review original claim status before resubmitting"
+  }
+}
 ```
 
 ---
 
-## What You Created
+## Example 3: Timely Filing Denial
 
-| Entity | Count | Details |
-|--------|-------|---------|
-| Member | 1 | HMO coverage |
-| Claims | 6 | Various denial scenarios |
-| Denials | 5 | Different CARC codes |
-| Appeals | 1 | Successful overturn |
+```
+healthsim › Generate a denied claim for timely filing violation (CO-29)
+```
+
+Expected output:
+```json
+{
+  "claim": {
+    "service_date": "2024-01-15",
+    "submission_date": "2025-01-20"
+  },
+  "adjudication": {
+    "status": "denied",
+    "denial_reason": {
+      "code": "CO-29",
+      "description": "The time limit for filing has expired",
+      "filing_limit": "365 days from date of service",
+      "days_elapsed": 370
+    },
+    "appeal_info": {
+      "can_appeal": true,
+      "notes": "Appeal must include proof of timely original submission or extenuating circumstances"
+    }
+  }
+}
+```
 
 ---
 
-## Common Denial Codes
+## Example 4: Bundling Denial
 
-### CARC (Claim Adjustment Reason Codes)
+```
+healthsim › Generate a denied claim for bundling (CO-97) where a procedure is included in another
+```
 
-| Code | Description | Common Cause |
-|------|-------------|--------------|
-| 4 | Procedure code inconsistent with modifier | Coding error |
-| 16 | Claim lacks information | Missing data |
-| 18 | Duplicate claim | Resubmission |
-| 29 | Timely filing | Late submission |
-| 45 | Exceeds UCR | OON balance |
-| 50 | Not medically necessary | No documentation |
-| 96 | Non-covered charge | Plan exclusion |
-| 197 | No prior auth | Missing cert |
+Expected output:
+```json
+{
+  "claim": {
+    "claim_lines": [
+      {
+        "line_number": 1,
+        "procedure_code": "99214",
+        "status": "paid",
+        "paid_amount": 98.50
+      },
+      {
+        "line_number": 2,
+        "procedure_code": "36415",
+        "procedure_description": "Venipuncture",
+        "status": "denied",
+        "denial_reason": {
+          "code": "CO-97",
+          "description": "The benefit for this service is included in the payment for another service",
+          "bundled_with": "99214"
+        }
+      }
+    ]
+  }
+}
+```
 
-### RARC (Remittance Advice Remark Codes)
+---
 
-| Code | Description |
-|------|-------------|
-| N115 | Diagnosis doesn't support service |
-| N290 | Missing referral |
-| N386 | Auth number not provided |
-| N522 | Service inconsistent with diagnosis |
-| MA130 | Duplicate claim |
-| N96 | Filing deadline passed |
+## Example 5: Medical Necessity Denial
+
+```
+healthsim › Generate a denied claim for lack of medical necessity with appeal pathway
+```
+
+Expected output:
+```json
+{
+  "adjudication": {
+    "status": "denied",
+    "denial_reason": {
+      "code": "CO-50",
+      "description": "These services are not deemed medically necessary",
+      "clinical_review": {
+        "reviewed_by": "Medical Director",
+        "review_date": "2025-01-18",
+        "rationale": "Documentation does not support medical necessity for advanced imaging"
+      }
+    },
+    "appeal_info": {
+      "level": "Peer-to-Peer",
+      "deadline": "2025-02-17",
+      "required_documentation": [
+        "Clinical notes supporting medical necessity",
+        "Conservative treatment failure documentation",
+        "Relevant test results"
+      ]
+    }
+  }
+}
+```
+
+---
+
+## Common Denial Codes Reference
+
+| Code | Description | Typical Resolution |
+|------|-------------|-------------------|
+| CO-4 | Procedure code inconsistent with modifier | Correct billing |
+| CO-15 | Authorization required | Submit PA |
+| CO-16 | Information inconsistent | Correct/clarify |
+| CO-18 | Duplicate claim | Check original |
+| CO-29 | Timely filing | Appeal with proof |
+| CO-45 | Exceeds fee schedule | Normal adjustment |
+| CO-50 | Not medically necessary | Peer-to-peer |
+| CO-97 | Bundled service | Review CCI edits |
 
 ---
 
 ## Variations
 
-### Pharmacy Denial
-
 ```
-healthsim › Generate a pharmacy claim denied for prior auth on a specialty drug
-```
-
-### Coordination of Benefits
-
-```
-healthsim › Generate a COB denial where primary didn't pay first
-```
-
-### Provider Enrollment
-
-```
-healthsim › Generate a denial for provider not enrolled in plan network
-```
-
-### Bundling Edit
-
-```
-healthsim › Generate a claim denied for procedure bundling (CCI edit)
+Generate an out-of-network denial with balance billing
+Generate a non-covered service denial
+Generate a claim denied for missing information
+Generate a claim with partial denial (some lines paid)
+Generate a claim denied pending coordination of benefits
 ```
 
 ---
 
 ## Related
 
-- [Claims Generation](../basic/claims-generation.md)
-- [MemberSim Guide](../../docs/guides/membersim-guide.md)
-- [Output Formats Reference](../../docs/reference/output-formats.md)
+- [Claims Generation](../basic/claims-generation.md) - Basic paid claims
+- [Format Transformations](format-transformations.md) - Export as X12 835/277
+
+---
+
+*Denial Scenarios v1.0 | HealthSim Agent*
