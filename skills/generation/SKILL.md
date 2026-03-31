@@ -92,6 +92,17 @@ Save as cohort "ma-diabetic-cohort-2025"
 
 See [distributions/distribution-types.md](distributions/distribution-types.md) for details.
 
+### Statistical Fidelity — Matching Real Populations
+
+Generated cohorts should use statistical distributions that match real-world population characteristics. The goal is realistic synthetic data, not random noise.
+
+**How to match a target population:**
+
+1. **Identify the source benchmark.** For Medicare Advantage, use CMS enrollment statistics (mean age ~72, 55% female, regional mix). For Commercial, use employer-census norms. For Medicaid, use state-level demographics.
+2. **Select distribution types that fit the data shape.** Age in MA populations follows a roughly normal distribution centered near 72-74 with standard deviation ~7. Cost distributions are log-normal (many low-cost, few high-cost). Chronic condition prevalence uses categorical distributions with rates from CDC PLACES or CMS Chronic Conditions data.
+3. **Parameterize from published statistics.** Do not guess distribution parameters. Use published prevalence rates (e.g., 27% diabetes in Medicare, 14% heart failure) and demographic breakdowns. PopulationSim data (`skills/populationsim/`) provides county- and tract-level benchmarks for prevalence and social determinants.
+4. **Validate output against inputs.** After generation, confirm the cohort's statistical profile (mean, median, standard deviation, category proportions) matches the specification within an acceptable tolerance. Flag drift greater than 5% from target parameters.
+
 ## Journey Patterns
 
 | Pattern | Use Case | Example |
@@ -129,6 +140,63 @@ Pre-built profiles and journeys for common use cases:
 - [diabetic-first-year.md](templates/journeys/diabetic-first-year.md) - New T2DM diagnosis year 1
 - [surgical-episode.md](templates/journeys/surgical-episode.md) - Elective surgery episode
 - [new-member-onboarding.md](templates/journeys/new-member-onboarding.md) - New member first 90 days
+
+## Safety Guardrails
+
+**All generated data is synthetic and fictional.** HealthSim produces simulated test data only. Never present generated records as real patient data.
+
+- **No clinical advice.** Generated data must not be used to make prescribing decisions, diagnoses, or treatment recommendations. If asked, remind the user this is synthetic test data, not real clinical information.
+- **Real codes, synthetic entities.** Use real, valid medical code systems for realism (see below), but all patients, members, encounters, and claims are generated/fictional.
+- **No real PHI.** Never pull from or reference real patient databases. All person-level data is simulated.
+
+### Standard Code Systems
+
+Generated data should reference recognized healthcare code systems:
+
+| System | Use |
+|--------|-----|
+| **ICD-10** | Diagnosis codes |
+| **CPT / HCPCS** | Procedure codes |
+| **LOINC** | Lab / observation codes |
+| **RxNorm / NDC** | Medication identifiers |
+| **SNOMED CT** | Clinical terminology |
+| **NPI** | Provider identifiers |
+
+Real reference data (NPI registry, CMS facility files, published code sets) is safe to use. Synthetic data is generated for all patient/member-level entities.
+
+## Edge Cases and Error Handling
+
+When generating data, handle incomplete or invalid inputs gracefully:
+
+### Missing or Partial Input
+
+| Situation | How to Handle |
+|-----------|---------------|
+| No age range specified | Default to plan-appropriate range (Medicare: 65-95, Commercial: 18-64, Medicaid Pediatric: 0-18) |
+| No geography specified | Omit geographic constraints; generate nationally representative distribution |
+| Missing condition prevalence | Use published population baselines (e.g., CDC PLACES prevalence rates) |
+| Incomplete journey steps | Generate the specified steps; warn the user about gaps rather than inventing steps silently |
+| Unknown or invalid ICD-10/CPT code | Reject the code and ask the user to verify; never silently substitute a different code |
+
+### What NOT to Generate
+
+These are common mistakes to avoid:
+
+- **Do NOT invent code systems.** Use only recognized systems (ICD-10, CPT, HCPCS, LOINC, RxNorm, NDC, SNOMED CT, NPI). Never fabricate codes that look plausible but do not exist in the standard.
+- **Do NOT generate clinically impossible combinations.** Example: a 5-year-old with Medicare Fee-for-Service, or a pregnancy diagnosis on a male patient. Cross-check age, sex, and plan type against clinical plausibility.
+- **Do NOT silently drop requested attributes.** If the user asks for 10 fields and only 8 can be generated, surface the gap explicitly rather than returning incomplete records without explanation.
+- **Do NOT extrapolate beyond the specification.** If the user asks for "50 patients with diabetes," generate exactly 50 with diabetes -- do not add additional unrequested conditions for "realism" unless the user has opted into realistic comorbidity modeling.
+- **Do NOT generate duplicate identifiers.** Every patient ID, member ID, encounter ID, and claim ID must be unique within a cohort.
+
+### Validation Checklist
+
+Before returning generated data, verify:
+
+1. All code values exist in their respective standard (ICD-10, CPT, LOINC, etc.)
+2. Date sequences are chronologically consistent (admission before discharge, prescription before fill)
+3. Demographic fields are internally consistent (age matches date of birth, plan type matches age eligibility)
+4. Requested counts match output counts (if 200 members requested, 200 are returned)
+5. No duplicate identifiers exist across the generated dataset
 
 ## Related Skills
 

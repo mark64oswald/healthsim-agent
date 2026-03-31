@@ -28,15 +28,16 @@ Use this skill when the user requests healthcare claims, payer data, or benefits
 
 For specific claims cohorts, load the appropriate cohort skill from the table below.
 
+## Safety Guardrails
+
+- **All data is synthetic.** MemberSim generates fictional, simulated test data. No real patient or member data is used.
+- **No clinical advice.** Never recommend treatments, prescriptions, or clinical decisions based on generated data. This is test data, not real medical records.
+- **Use valid medical code systems.** Always reference recognized standards: ICD-10 for diagnoses, CPT/HCPCS for procedures, NPI for providers, NDC/RxNorm for drugs, LOINC for labs, SNOMED CT for clinical terms.
+- **Do NOT generate** real SSNs, real member IDs from production systems, or data that could be confused with actual PHI.
+
 ## Overview
 
-MemberSim generates realistic synthetic claims and payer data for testing claims processing systems, payment integrity, and benefits administration. This includes:
-- Member enrollment and eligibility
-- Professional claims (837P)
-- Institutional/facility claims (837I)
-- Claim adjudication and payment
-- Prior authorization workflows
-- Accumulator tracking (deductible, OOP)
+MemberSim generates synthetic claims and payer data for testing claims processing, payment integrity, and benefits administration:
 
 ## Quick Start
 
@@ -76,7 +77,24 @@ MemberSim generates realistic synthetic claims and payer data for testing claims
 
 **Request:** "Generate an inpatient claim for heart failure admission"
 
-Claude loads [facility-claims.md](facility-claims.md) and produces a complete 837I-style claim with DRG assignment.
+Claude loads [facility-claims.md](facility-claims.md) and produces a complete 837I-style claim:
+
+```json
+{
+  "claim": {
+    "claim_type": "INSTITUTIONAL",
+    "principal_diagnosis": "I50.9",
+    "drg": { "ms_drg": "291", "description": "Heart failure & shock w/o CC/MCC" },
+    "admit_date": "2025-01-10",
+    "discharge_date": "2025-01-13",
+    "claim_lines": [
+      { "revenue_code": "0120", "description": "Room and board - semi-private", "per_diem": 1800.00, "units": 3 },
+      { "revenue_code": "0250", "description": "Pharmacy", "charge_amount": 950.00 },
+      { "revenue_code": "0300", "description": "Laboratory", "charge_amount": 1200.00 }
+    ]
+  }
+}
+```
 
 ## Cohort Skills
 
@@ -105,47 +123,14 @@ Load the appropriate cohort based on user request:
 
 ## Output Entities
 
-### Member
-Extends Person with coverage information:
-- member_id, subscriber_id, relationship_code
-- group_id, plan_code
-- coverage_start, coverage_end
-- PCP assignment (for HMO)
-
-### Claim
-Claim header with:
-- claim_id, claim_type
-- member_id, provider_npi
-- service dates, place of service
-- diagnosis codes (principal + secondary)
-- claim_lines array
-
-### ClaimLine
-Individual service line:
-- procedure_code (CPT/HCPCS)
-- modifiers, units
-- charge_amount
-- revenue_code (for institutional)
-
-### Adjudication
-Payment determination:
-- status (paid, denied, pending)
-- allowed_amount, paid_amount
-- deductible, copay, coinsurance
-- adjustment_reason_codes
-
-### Plan
-Benefit plan configuration:
-- plan_type (HMO, PPO, etc.)
-- deductibles, OOP maximums
-- copays, coinsurance rates
-- network requirements
-
-### Accumulator
-Year-to-date cost sharing:
-- deductible_applied vs deductible_limit
-- oop_applied vs oop_limit
-- Family vs individual tracking
+| Entity | Key Fields |
+|--------|-----------|
+| **Member** | member_id, subscriber_id, group_id, plan_code, coverage_start/end, PCP (HMO) |
+| **Claim** | claim_id, claim_type, member_id, provider_npi, service dates, diagnosis codes, claim_lines[] |
+| **ClaimLine** | procedure_code (CPT/HCPCS), modifiers, units, charge_amount, revenue_code (institutional) |
+| **Adjudication** | status (paid/denied/pending), allowed_amount, paid_amount, deductible, copay, coinsurance, adjustment_reason_codes |
+| **Plan** | plan_type (HMO/PPO/etc.), deductibles, OOP maximums, copays, coinsurance rates, network requirements |
+| **Accumulator** | deductible_accumulated vs remaining, OOP/MOOP accumulated vs remaining, family vs individual tracking |
 
 See [../../references/data-models.md](../../references/data-models.md) for complete schemas.
 
@@ -161,7 +146,7 @@ See [../../references/data-models.md](../../references/data-models.md) for compl
    b. Copay (fixed amount)
    c. Coinsurance (% of allowed after deductible)
 5. Calculate paid amount = allowed - member responsibility
-6. Update accumulators
+6. Update accumulators (deductible accumulated/remaining, OOP/MOOP accumulated/remaining)
 ```
 
 ### Common Denial Reasons
@@ -269,106 +254,7 @@ See [../../formats/](../../formats/) for transformation skills.
 }
 ```
 
-### Example 3: Partial Payment (Deductible Applied)
-
-**Request:** "Generate a claim where deductible applies"
-
-```json
-{
-  "accumulator_before": {
-    "deductible_applied": 200.00,
-    "deductible_limit": 500.00,
-    "oop_applied": 200.00,
-    "oop_limit": 3000.00
-  },
-  "claim": {
-    "claim_id": "CLM20250115000003",
-    "procedure_code": "99214",
-    "charge_amount": 175.00
-  },
-  "adjudication": {
-    "status": "paid",
-    "allowed_amount": 125.00,
-    "deductible": 125.00,
-    "copay": 0.00,
-    "paid_amount": 0.00,
-    "patient_responsibility": 125.00
-  },
-  "accumulator_after": {
-    "deductible_applied": 325.00,
-    "deductible_limit": 500.00,
-    "oop_applied": 325.00,
-    "oop_limit": 3000.00
-  }
-}
-```
-
-### Example 4: Oncology Infusion Claim
-
-**Request:** "Generate a facility claim for chemotherapy infusion"
-
-```json
-{
-  "claim": {
-    "claim_id": "CLM20250115000004",
-    "claim_type": "INSTITUTIONAL",
-    "member_id": "MEM005678",
-    "provider_npi": "1234567890",
-    "facility_type": "outpatient_hospital",
-    "service_date": "2025-01-15",
-    "principal_diagnosis": "C50.911",
-    "diagnosis_description": "Malignant neoplasm of right female breast",
-    "claim_lines": [
-      {
-        "line_number": 1,
-        "revenue_code": "0335",
-        "procedure_code": "96413",
-        "hcpcs_code": "J9267",
-        "description": "Paclitaxel injection, 1mg",
-        "units": 175,
-        "charge_amount": 3500.00
-      },
-      {
-        "line_number": 2,
-        "revenue_code": "0335",
-        "procedure_code": "96415",
-        "description": "Chemotherapy infusion, additional hour",
-        "units": 2,
-        "charge_amount": 400.00
-      },
-      {
-        "line_number": 3,
-        "revenue_code": "0250",
-        "procedure_code": "96360",
-        "hcpcs_code": "J2405",
-        "description": "Ondansetron injection (antiemetic)",
-        "units": 8,
-        "charge_amount": 120.00
-      }
-    ]
-  },
-  "prior_auth": {
-    "auth_number": "PA20250101-12345",
-    "status": "approved",
-    "approved_units": 6,
-    "approved_through": "2025-06-30"
-  },
-  "adjudication": {
-    "status": "paid",
-    "allowed_amount": 3200.00,
-    "deductible": 0.00,
-    "coinsurance": 640.00,
-    "paid_amount": 2560.00,
-    "patient_responsibility": 640.00
-  }
-}
-```
-
-Key oncology claim elements:
-- J-codes for injectable drugs (J9267 = paclitaxel)
-- Revenue code 0335 (chemotherapy)
-- Prior authorization reference
-- Multi-line claim (drug + administration + supportive care)
+See [claim-examples.md](claim-examples.md) for additional examples: partial payment with deductible application, oncology infusion claims, OON emergency, and telehealth visits.
 
 ## Related Skills
 
@@ -414,119 +300,26 @@ Medical and pharmacy benefits are often coordinated:
 
 > **Integration Pattern:** For integrated medical+Rx benefits, ensure accumulators are synchronized and coverage dates match. Some specialty drugs are covered under medical benefit (infused) vs. pharmacy benefit (oral).
 
-### Cross-Product: PopulationSim (Demographics & SDOH) - v2.0 Data Integration
+### Cross-Product: PopulationSim (Demographics & SDOH)
 
-PopulationSim v2.0 provides **embedded real-world data** for actuarially realistic member generation. When a geography is specified, MemberSim uses actual CDC PLACES, SVI, and ADI data to ground demographics, health patterns, and expected utilization.
+PopulationSim provides **embedded real-world data** (CDC PLACES, SVI, ADI) for actuarially realistic member generation. When geography is specified, look up actual prevalence rates and demographics to ground synthetic member panels.
 
-#### Data-Driven Generation Pattern
-
-**Step 1: Look up real population data**
-```
-# For Maricopa County, AZ (FIPS: 04013)
-Read from: skills/populationsim/data/county/places_county_2024.csv
-→ DIABETES_CrudePrev: 10.2%
-→ OBESITY_CrudePrev: 29.8%
-→ BPHIGH_CrudePrev: 29.1%
-→ ACCESS2_CrudePrev: 12.8% (uninsured rate)
-
-Read from: skills/populationsim/data/county/svi_county_2022.csv
-→ RPL_THEMES (overall SVI): 0.52
-→ EP_POV150: 18.1% (below 150% poverty)
-→ EP_AGE65: 17.2% (65+ population)
-```
-
-**Step 2: Apply rates to member generation**
-```json
-{
-  "cohort_parameters": {
-    "geography": { "county_fips": "04013", "name": "Maricopa County, AZ" },
-    "expected_prevalence": {
-      "diabetes": 0.102,
-      "obesity": 0.298,
-      "hypertension": 0.291
-    },
-    "demographic_context": {
-      "age_65_plus": 0.172,
-      "poverty_rate": 0.181
-    },
-    "data_provenance": {
-      "source": "CDC_PLACES_2024",
-      "data_year": 2022
-    }
-  }
-}
-```
-
-**Step 3: Generate members matching real rates**
-- Age distribution mirrors county demographics
-- Expected chronic conditions match PLACES prevalence
-- Risk scores (HCC) calibrated to population health
-- Plan tier selection reflects income distribution
-
-#### Embedded Data Sources
+**Pattern:** (1) Look up county/tract data by FIPS code, (2) apply prevalence rates to member generation, (3) include data provenance in output.
 
 | Source | File | Use in MemberSim |
 |--------|------|------------------|
-| CDC PLACES County | `populationsim/data/county/places_county_2024.csv` | Expected utilization rates, risk adjustment |
-| CDC PLACES Tract | `populationsim/data/tract/places_tract_2024.csv` | Neighborhood-level health patterns |
-| SVI County | `populationsim/data/county/svi_county_2022.csv` | SDOH factors, plan selection patterns |
-| SVI Tract | `populationsim/data/tract/svi_tract_2022.csv` | Tract-level vulnerability |
-| ADI Block Group | `populationsim/data/block_group/adi_blockgroup_2023.csv` | Deprivation-based adherence modeling |
-
-#### PopulationSim Integration Skills
+| CDC PLACES County | `populationsim/data/county/places_county_2024.csv` | Utilization rates, risk adjustment |
+| SVI County | `populationsim/data/county/svi_county_2022.csv` | SDOH factors, plan selection |
+| ADI Block Group | `populationsim/data/block_group/adi_blockgroup_2023.csv` | Deprivation-based adherence |
 
 | PopulationSim Skill | MemberSim Application |
 |---------------------|----------------------|
-| [data-lookup.md](../populationsim/data-access/data-lookup.md) | Exact prevalence rates for risk adjustment |
-| [county-profile.md](../populationsim/geographic/county-profile.md) | Service area demographics, health patterns |
+| [data-lookup.md](../populationsim/data-access/data-lookup.md) | Prevalence rates for risk adjustment |
+| [county-profile.md](../populationsim/geographic/county-profile.md) | Service area demographics |
 | [svi-analysis.md](../populationsim/sdoh/svi-analysis.md) | Social vulnerability → plan tier, adherence |
 | [adi-analysis.md](../populationsim/sdoh/adi-analysis.md) | Area deprivation → utilization patterns |
-| [cohort-specification.md](../populationsim/cohorts/cohort-specification.md) | Data-driven member panel definition |
 
-#### Example: Data-Grounded Medicare Advantage Panel
-
-**Request:** "Generate 1,000 members for a Medicare Advantage plan in Maricopa County, AZ"
-
-**Data Lookup:**
-```
-From places_county_2024.csv (FIPS 04013):
-  DIABETES_CrudePrev: 10.2%
-  CHD_CrudePrev: 6.1%
-  COPD_CrudePrev: 6.8%
-  KIDNEY_CrudePrev: 2.9%
-
-From svi_county_2022.csv (FIPS 04013):
-  RPL_THEMES: 0.52 (moderate vulnerability)
-  EP_AGE65: 17.2%
-  EP_DISABL: 13.1%
-```
-
-**Applied to Generation:**
-- ~17% of members are 65+ (matches county rate)
-- ~10% have diabetes diagnosis (expected chronic conditions)
-- ~6% have CHD (drives HCC scoring)
-- SVI 0.52 → moderate plan selection diversity
-- Output includes provenance tracking
-
-**Output with Provenance:**
-```json
-{
-  "member_panel": {
-    "total_members": 1000,
-    "geography": "Maricopa County, AZ (04013)",
-    "generation_context": {
-      "data_sources": ["CDC_PLACES_2024", "CDC_SVI_2022"],
-      "rates_applied": {
-        "diabetes": 0.102,
-        "chd": 0.061,
-        "age_65_plus": 0.172
-      }
-    }
-  }
-}
-```
-
-> **Key Principle:** When geography is specified, always ground member generation in real PopulationSim data. This enables actuarially realistic synthetic member panels for testing claims systems, risk adjustment, and care management.
+> **Key Principle:** When geography is specified, always ground member generation in real PopulationSim data for actuarially realistic synthetic panels.
 
 ### Cross-Product: NetworkSim (Provider Networks)
 

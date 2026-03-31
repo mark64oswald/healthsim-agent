@@ -7,37 +7,39 @@ description: "RxMemberSim generates realistic synthetic pharmacy data for testin
 
 ## For Claude
 
-Use this skill when the user requests pharmacy data, prescription fills, or PBM (Pharmacy Benefit Management) cohorts. This is the primary skill for generating realistic synthetic pharmacy claims and drug utilization data.
+Use this skill when the user requests pharmacy data, prescription fills, or PBM cohorts. Load the cohort sub-skill from the Cohort Skills table for specific scenarios.
 
-**When to apply this skill:**
+**Triggers:** prescriptions, pharmacy claims, medication fills, DUR alerts, drug interactions, formulary/tier cohorts, NCPDP output, pharmacy prior authorization, step therapy
 
-- User mentions prescriptions, pharmacy claims, or medication fills
-- User requests DUR (Drug Utilization Review) alerts or drug interactions
-- User specifies formulary, tier, or coverage cohorts
-- User asks for NCPDP formatted output
-- User needs pharmacy prior authorization or step therapy data
+**Capabilities:** pharmacy members (BIN/PCN/Group), prescription fills with NDC codes, claim adjudication and pricing, DUR alerts, formulary/tier management, manufacturer copay programs, NCPDP D.0 output
 
-**Key capabilities:**
+## Safety Guardrails
 
-- Generate pharmacy members with BIN/PCN/Group identifiers
-- Create prescription fills (new and refill) with NDC codes
-- Model pharmacy claim adjudication and pricing
-- Generate DUR alerts (drug interactions, therapeutic duplications, early refills)
-- Handle formulary management and tier structures
-- Model manufacturer copay programs and patient assistance
-- Transform output to NCPDP D.0 format
+- **All data is synthetic.** Every member, claim, NDC, NPI, and pricing value is fabricated. Never present output as real patient or pharmacy data.
+- **No clinical advice.** RxMemberSim models PBM workflows only. Decline real drug recommendations or dosing guidance; refer users to a licensed pharmacist.
+- **No real PHI.** Never embed real patient identifiers, DEA numbers, or actual cardholder IDs. Use realistic but fictional values.
+- **NDC codes are illustrative.** Example NDCs approximate real formats but may not map to FDA-registered products. Validate against the FDA NDC Directory for production use.
+- **Pricing is synthetic.** Ingredient costs, dispensing fees, and copay amounts do not reflect actual AWP, WAC, or MAC pricing.
 
-For specific pharmacy cohorts, load the appropriate cohort skill from the table below.
+## Edge Cases and Validation
 
-## Overview
+- **Missing NDC or drug name:** Generate a plausible synthetic NDC (11-digit 5-4-2 format) and map to a fictional drug. Never leave NDC blank.
+- **Invalid BIN/PCN/Group:** Flag as rejected with reject code 99 ("Host Processing Error") and include a corrective message.
+- **Partial member data:** Fill missing fields with realistic defaults (e.g., person_code "01", relationship_code "1" for subscriber). Note which fields were defaulted.
+- **Unknown RxNorm or GPI code:** Use a synthetic code in the correct format. Note that production systems should validate against the RxNorm API or GPI reference.
+- **Negative examples — do NOT generate:** real DEA numbers, actual AWP/WAC pricing, clinical dosing recommendations, or data presented as non-synthetic.
 
-RxMemberSim generates realistic synthetic pharmacy data for testing pharmacy benefit management (PBM) systems, claims adjudication, and drug utilization review. This includes:
-- Prescription fills (new and refill)
-- Pharmacy claims (NCPDP D.0)
-- Drug Utilization Review (DUR) alerts
-- Formulary and tier management
-- Prior authorization workflows
-- Manufacturer copay programs
+## Pharmacy Code Systems
+
+| System | Use | Example |
+|--------|-----|---------|
+| NDC | Drug product identifier (11-digit) | 00071015523 |
+| RxNorm | Standard drug concept (ingredient, dose form) | RxCUI 83367 |
+| GPI | Generic Product Identifier (drug class hierarchy) | 39400010100310 |
+| NCPDP | Pharmacy identifier and transaction standard | D.0 format |
+| NPI | Provider/pharmacy identifier | 1234567890 |
+| ICD-10-CM | Diagnosis code (required for PA submissions) | E11.9 |
+| HCPCS | Medical pharmacy / buy-and-bill drugs | J0135 |
 
 ## Quick Start
 
@@ -167,7 +169,7 @@ Drug utilization review alert:
 
 ### FormularyDrug
 Drug coverage information:
-- ndc, gpi, drug_name
+- ndc, gpi, rxnorm_code, drug_name
 - tier, covered status
 - PA required, step therapy required
 - quantity limits, age/gender restrictions
@@ -236,45 +238,25 @@ See [../../formats/ncpdp-d0.md](../../formats/ncpdp-d0.md) for transformation.
 
 ```json
 {
-  "member": {
-    "member_id": "MEM001234",
-    "cardholder_id": "001234001",
-    "bin": "610014",
-    "pcn": "RXGROUP",
-    "group_number": "CORP001"
-  },
-  "prescription": {
-    "prescription_number": "RX78901234",
-    "ndc": "00093505601",
-    "drug_name": "Lisinopril 10mg Tablet",
-    "quantity_prescribed": 30,
-    "days_supply": 30,
-    "refills_authorized": 5,
-    "prescriber_npi": "1234567890",
-    "written_date": "2025-01-10"
-  },
   "claim": {
     "claim_id": "RX20250115000001",
     "transaction_code": "B1",
     "service_date": "2025-01-15",
-    "pharmacy_npi": "9876543210",
-    "pharmacy_ncpdp": "1234567",
+    "bin": "610014", "pcn": "RXGROUP", "group_number": "CORP001",
+    "cardholder_id": "001234001",
     "ndc": "00093505601",
+    "drug_name": "Lisinopril 10mg Tablet",
     "quantity_dispensed": 30,
     "days_supply": 30,
-    "fill_number": 0,
-    "daw_code": "0",
+    "pharmacy_npi": "9876543210",
+    "prescriber_npi": "1234567890",
     "ingredient_cost_submitted": 8.50,
-    "dispensing_fee_submitted": 2.00,
-    "usual_customary_charge": 15.00,
-    "gross_amount_due": 10.50
+    "dispensing_fee_submitted": 2.00
   },
   "response": {
     "status": "paid",
-    "message": "Claim accepted",
     "ingredient_cost_paid": 8.50,
     "dispensing_fee_paid": 1.75,
-    "total_amount_paid": 0.25,
     "patient_pay_amount": 10.00,
     "copay_amount": 10.00,
     "authorization_number": "AUTH20250115001"
@@ -380,16 +362,6 @@ See [../../formats/ncpdp-d0.md](../../formats/ncpdp-d0.md) for transformation.
 
 ## Related Skills
 
-### RxMemberSim Cohorts
-- [retail-pharmacy.md](retail-pharmacy.md) - Standard retail fills
-- [specialty-pharmacy.md](specialty-pharmacy.md) - Specialty drug distribution
-- [dur-alerts.md](dur-alerts.md) - Drug utilization review
-- [formulary-management.md](formulary-management.md) - Formulary and tier structure
-- [rx-enrollment.md](rx-enrollment.md) - Pharmacy enrollment and eligibility
-- [rx-prior-auth.md](rx-prior-auth.md) - Pharmacy prior authorization
-- [rx-accumulator.md](rx-accumulator.md) - Pharmacy accumulator tracking
-- [manufacturer-programs.md](manufacturer-programs.md) - Copay cards, PAPs, hub programs
-
 ### Cross-Product: PatientSim (Clinical)
 
 RxMemberSim pharmacy claims correspond to PatientSim medication orders:
@@ -401,18 +373,13 @@ RxMemberSim pharmacy claims correspond to PatientSim medication orders:
 | [dur-alerts.md](dur-alerts.md) | Multi-drug regimens | DDI based on patient's med list |
 | [rx-prior-auth.md](rx-prior-auth.md) | High-cost drugs | Clinical criteria from PatientSim |
 
-**PatientSim Cohort Links:**
-- [../patientsim/diabetes-management.md](../patientsim/diabetes-management.md) - Oral agents, insulin, GLP-1s
-- [../patientsim/heart-failure.md](../patientsim/heart-failure.md) - GDMT medications
-- [../patientsim/chronic-kidney-disease.md](../patientsim/chronic-kidney-disease.md) - ESAs, phosphate binders
-- [../patientsim/behavioral-health.md](../patientsim/behavioral-health.md) - Psychiatric medications
-- [../patientsim/oncology/](../patientsim/oncology/) - Oral oncolytics, supportive care
+**PatientSim Cohort Links:** [diabetes-management](../patientsim/diabetes-management.md), [heart-failure](../patientsim/heart-failure.md), [chronic-kidney-disease](../patientsim/chronic-kidney-disease.md), [behavioral-health](../patientsim/behavioral-health.md), [oncology](../patientsim/oncology/)
 
-> **Integration Pattern:** Generate medication orders in PatientSim, then use RxMemberSim to model pharmacy fills. Match NDCs, use appropriate fill timing (retail: same day; specialty: +1-7 days), and apply formulary/PA rules.
+> **Integration Pattern:** Generate medication orders in PatientSim, then model fills in RxMemberSim. Match NDCs, apply fill timing (retail: same day; specialty: +1-7 days), and PA rules.
 
 ### Cross-Product: MemberSim (Claims)
 
-Pharmacy and medical benefits are often coordinated:
+Pharmacy and medical benefits coordinate:
 
 | RxMemberSim Skill | MemberSim Skill | Integration |
 |-------------------|-----------------|-------------|
@@ -425,114 +392,11 @@ Pharmacy and medical benefits are often coordinated:
 
 ### Cross-Product: PopulationSim Integration
 
-PopulationSim v2.0 provides **embedded real-world data** for realistic medication utilization modeling. When a geography is specified, RxMemberSim uses actual CDC PLACES, SVI, and ADI data to ground prescribing patterns, adherence behaviors, and formulary utilization.
-
-#### Data-Driven Generation Pattern
-
-**Step 1: Look up real population data**
-```
-# For rural Appalachian county - Pike County, KY (FIPS: 21195)
-Read from: skills/populationsim/data/county/places_county_2024.csv
-→ DIABETES_CrudePrev: 16.8%
-→ BPMED_CrudePrev: 62.1% (on BP medication)
-→ ACCESS2_CrudePrev: 9.1% (uninsured)
-
-Read from: skills/populationsim/data/county/svi_county_2022.csv
-→ RPL_THEMES (overall SVI): 0.91 (very high vulnerability)
-→ EP_POV150: 38.2% (below 150% poverty)
-→ EP_NOVEH: 8.4% (no vehicle - affects pharmacy access)
-```
-
-**Step 2: Apply rates to pharmacy generation**
-```json
-{
-  "cohort_parameters": {
-    "geography": { "county_fips": "21195", "name": "Pike County, KY" },
-    "expected_drug_classes": {
-      "antidiabetics": 0.168,
-      "antihypertensives": 0.621
-    },
-    "adherence_context": {
-      "svi_overall": 0.91,
-      "transportation_barrier": 0.084,
-      "poverty_rate": 0.382
-    },
-    "data_provenance": {
-      "source": "CDC_PLACES_2024",
-      "data_year": 2022
-    }
-  }
-}
-```
-
-**Step 3: Generate pharmacy claims matching real patterns**
-- ~17% of members on antidiabetics (not generic 10%)
-- High SVI → higher generic utilization (cost sensitivity)
-- Transportation barriers → more mail-order, 90-day fills
-- Lower adherence rates (MPR ~0.70 vs 0.80 baseline)
-
-#### Embedded Data Sources for Rx Patterns
-
-| Source | File | Use in RxMemberSim |
-|--------|------|-------------------|
-| CDC PLACES County | `populationsim/data/county/places_county_2024.csv` | Medication class utilization (BPMED, etc.) |
-| CDC PLACES Tract | `populationsim/data/tract/places_tract_2024.csv` | Neighborhood prescribing patterns |
-| SVI County | `populationsim/data/county/svi_county_2022.csv` | Adherence modeling, generic preference |
-| SVI Tract | `populationsim/data/tract/svi_tract_2022.csv` | Pharmacy access patterns |
-| ADI Block Group | `populationsim/data/block_group/adi_blockgroup_2023.csv` | Deprivation → adherence correlation |
-
-#### SDOH Impact on Pharmacy Utilization
-
-| SDOH Factor | Pharmacy Impact | Data Source |
-|-------------|-----------------|-------------|
-| High SVI (>0.75) | +15% generic utilization, -15% adherence | SVI RPL_THEMES |
-| No vehicle (EP_NOVEH) | +20% mail-order preference | SVI tract data |
-| High poverty (EP_POV150) | Higher copay card utilization | SVI county data |
-| High ADI (>75 percentile) | More early refill rejections | ADI block group |
-
-#### Example: Data-Grounded Diabetic Pharmacy Claims
-
-**Request:** "Generate pharmacy claims for a diabetic population in Pike County, KY"
-
-**Data Lookup:**
-```
-From places_county_2024.csv (FIPS 21195):
-  DIABETES_CrudePrev: 16.8%
-  OBESITY_CrudePrev: 41.2%
-  BPMED_CrudePrev: 62.1%
-
-From svi_county_2022.csv (FIPS 21195):
-  RPL_THEMES: 0.91 (very high vulnerability)
-  EP_POV150: 38.2%
-  EP_NOVEH: 8.4%
-```
-
-**Applied to Generation:**
-- Drug mix: 70% metformin (generic), 20% sulfonylureas, 10% GLP-1/SGLT2
-- Adherence: MPR ~0.68 (below national average due to high SVI)
-- Channel: 65% retail, 35% mail-order (transport barriers)
-- Copay programs: 25% utilizing manufacturer assistance
-
-**Output with Provenance:**
-```json
-{
-  "pharmacy_claims": [ ... ],
-  "generation_context": {
-    "geography": "Pike County, KY (21195)",
-    "data_sources": ["CDC_PLACES_2024", "CDC_SVI_2022"],
-    "rates_applied": {
-      "diabetes_prevalence": 0.168,
-      "svi_adherence_modifier": -0.15
-    }
-  }
-}
-```
-
-> **Key Principle:** When geography is specified, ground pharmacy claims in real PopulationSim data. This enables realistic medication adherence modeling, generic utilization patterns, and SDOH-influenced pharmacy access behaviors.
+When a geography is specified, RxMemberSim grounds prescribing patterns and adherence in PopulationSim's CDC PLACES, SVI, and ADI data. See [populationsim-integration.md](populationsim-integration.md) for the generation pattern and SDOH impact tables.
 
 ### Cross-Product: NetworkSim (Pharmacy Networks)
 
-NetworkSim provides realistic pharmacy entities and benefit structures for prescription claims:
+NetworkSim provides pharmacy entities and benefit structures for prescription claims:
 
 | RxMemberSim Need | NetworkSim Skill | Generated Entity |
 |------------------|------------------|------------------|
@@ -541,7 +405,7 @@ NetworkSim provides realistic pharmacy entities and benefit structures for presc
 | Pharmacy benefit | [synthetic-pharmacy-benefit.md](../networksim/synthetic/synthetic-pharmacy-benefit.md) | Benefit design |
 | Specialty pharmacy | [specialty-pharmacy.md](../networksim/reference/specialty-pharmacy.md) | Limited distribution, hub model |
 
-> **Integration Pattern:** Generate prescription claims in RxMemberSim first, then use NetworkSim to add realistic pharmacy entities with proper NCPDP IDs, network status, and formulary context.
+> **Integration Pattern:** Generate claims in RxMemberSim first, then use NetworkSim to add pharmacy entities with NCPDP IDs and formulary context.
 
 ### Output Formats
 - [../../formats/ncpdp-d0.md](../../formats/ncpdp-d0.md) - NCPDP D.0 format
@@ -550,7 +414,7 @@ NetworkSim provides realistic pharmacy entities and benefit structures for presc
 
 ### Reference Data
 - [../../references/data-models.md](../../references/data-models.md) - Entity schemas
-- [../../references/code-systems.md](../../references/code-systems.md) - NDC, GPI, NCPDP codes
+- [../../references/code-systems.md](../../references/code-systems.md) - NDC, RxNorm, GPI, NCPDP codes
 
 ---
 
@@ -558,43 +422,6 @@ NetworkSim provides realistic pharmacy entities and benefit structures for presc
 
 RxMemberSim integrates with the [Generative Framework](../generation/SKILL.md) for specification-driven generation at scale.
 
-### Profile-Driven Generation
-
-Use profile specifications to generate pharmacy member populations:
-
-```
-"Use the Medicare diabetic profile to generate 200 pharmacy members"
-```
-
-The Profile Executor will:
-1. Sample demographics from profile distributions
-2. Generate pharmacy benefit coverage
-3. Create medication profiles based on conditions
-4. Link to formulary and pharmacy network
-
-### Journey-Driven Generation
-
-Attach journey specifications to create prescription fills over time:
-
-```
-"Add the diabetic first-year journey with medication fills"
-```
-
-The Journey Executor will:
-1. Generate initial prescriptions
-2. Create refill events at appropriate intervals
-3. Apply DUR alerts when clinically appropriate
-4. Track accumulator impacts (TrOOP for Part D)
-
-### Cross-Domain Sync
-
-When generating across products, RxMemberSim entities are automatically linked:
-
-| RxMemberSim Entity | Links To |
-|--------------------|----------|
-| RxMember | MemberSim Member (via member_id) |
-| Fill | PatientSim Prescription |
-| Pharmacy | NetworkSim Pharmacy |
-| Prescriber | NetworkSim Provider |
-
-See: [../generation/executors/cross-domain-sync.md](../generation/executors/cross-domain-sync.md)
+- **Profile-Driven:** `"Generate 200 pharmacy members from the Medicare diabetic profile"` — samples demographics, assigns Rx coverage, links to formulary/network.
+- **Journey-Driven:** `"Add diabetic first-year journey with fills"` — generates Rx, refills, DUR alerts, and accumulator impacts (TrOOP for Part D).
+- **Cross-Domain Sync:** RxMember → MemberSim Member, Fill → PatientSim Prescription, Pharmacy/Prescriber → NetworkSim. See [cross-domain-sync.md](../generation/executors/cross-domain-sync.md).

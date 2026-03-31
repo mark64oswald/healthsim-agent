@@ -22,8 +22,8 @@ Use this skill when the user requests clinical patient data, EMR/EHR test data, 
 - Generate patients with realistic demographics and identifiers
 - Create encounters across care settings (inpatient, outpatient, ED, observation)
 - Apply clinical cohorts from specialized skills (diabetes, oncology, etc.)
-- Produce appropriately coded data (ICD-10, CPT, LOINC, RxNorm)
-- Transform output to healthcare standards (FHIR R4, HL7v2, C-CDA)
+- Produce appropriately coded data (ICD-10, CPT, HCPCS, LOINC, RxNorm, SNOMED)
+- Transform output to FHIR R4 (Bundle, Patient, Condition, Encounter), HL7v2, C-CDA
 
 For specific clinical cohorts, load the appropriate cohort skill from the table below.
 
@@ -74,7 +74,7 @@ Load the appropriate cohort based on user request:
 | **ADT Workflow** | admission, discharge, transfer, ADT, patient movement | [adt-workflow.md](adt-workflow.md) |
 | **Behavioral Health** | depression, anxiety, bipolar, PTSD, mental health, psychiatric, substance use, PHQ-9, GAD-7 | [behavioral-health.md](behavioral-health.md) |
 | **Diabetes Management** | diabetes, A1C, glucose, metformin, insulin | [diabetes-management.md](diabetes-management.md) |
-| **Heart Failure** | CHF, HFrEF, HFpEF, BNP, ejection fraction | [heart-failure.md](heart-failure.md) |
+| **Heart Failure** | CHF, HFrEF, HFpEF, BNP, ejection fraction, I50 | [heart-failure.md](heart-failure.md) |
 | **Chronic Kidney Disease** | CKD, eGFR, dialysis, nephropathy | [chronic-kidney-disease.md](chronic-kidney-disease.md) |
 | **Sepsis/Acute Care** | sepsis, infection, ICU, critical care | [sepsis-acute-care.md](sepsis-acute-care.md) |
 | **Orders & Results** | lab order, radiology, ORM, ORU, results | [orders-results.md](orders-results.md) |
@@ -127,10 +127,43 @@ PatientSim ensures generated data is clinically realistic:
 1. **Age-appropriate conditions**: No pediatric conditions in adults, geriatric conditions require appropriate age
 2. **Gender-appropriate conditions**: Prostate conditions for males only, pregnancy for females only
 3. **Medication indications**: Drugs match diagnoses (metformin requires diabetes)
-4. **Lab coherence**: Values align with conditions (elevated A1C with diabetes)
+4. **Lab coherence**: Values align with conditions (elevated A1C with diabetes, BMP reflects renal status)
 5. **Temporal consistency**: Diagnoses before treatments, labs after orders
+6. **Comorbidity patterns**: Realistic comorbid conditions cluster together (e.g., diabetes + hypertension + CKD)
 
 See [validation-rules.md](../../references/validation-rules.md) for complete rules.
+
+## Safety Guardrails
+
+All PatientSim data is **100% synthetic** (fictional and simulated). Enforce these rules at all times:
+
+1. **No real patient data.** Never copy real medical records, real MRNs, or real SSNs into output. All identifiers must be generated.
+2. **No clinical advice.** Output is test data, not medical guidance. Never phrase output as a recommendation for actual patient care.
+3. **No real provider NPIs in patient context.** Use synthetic NPIs (prefix with `9999`) unless explicitly pulling from NetworkSim reference data.
+4. **Validate code systems.** Only emit ICD-10-CM codes from the current valid set (e.g., `E11.65` not `E11.999`). Same for CPT, LOINC, and RxNorm -- use real codes, not invented ones.
+5. **PHI boundary.** If a user supplies real patient details, refuse and explain that PatientSim generates synthetic data only.
+
+## Negative Examples (What NOT to Generate)
+
+| Mistake | Why It Fails | Correct Approach |
+|---------|-------------|------------------|
+| Assigning pregnancy to a male patient | Gender-inappropriate | Check gender before obstetric conditions |
+| Metformin without a diabetes diagnosis | Medication without indication | Always pair drugs with supporting Dx |
+| A1C of 14.2% on a healthy patient | Lab contradicts condition list | Abnormal values require matching diagnosis |
+| ICD-10 code `E11.999` | Invalid code -- does not exist | Use valid codes like `E11.65` (with complications) |
+| Discharge date before admission date | Temporal inversion | Ensure chronological ordering of all events |
+| Using a real SSN (e.g., `078-05-1120`) | PHI leak risk | Generate synthetic SSNs in `900-xx-xxxx` range |
+
+## Edge Case Handling
+
+| Scenario | Behavior |
+|----------|----------|
+| **Partial data request** ("just demographics") | Omit clinical entities (encounters, labs, meds); return only requested subset |
+| **Age-cohort conflict** ("5-year-old with COPD") | Flag the clinical implausibility, suggest an age-appropriate alternative, and ask before proceeding |
+| **Invalid ICD-10 code from user** (e.g., `E11.999`) | Reject the code, suggest the nearest valid code, explain why |
+| **Missing required fields** (no age or gender given) | Apply defaults from Generation Parameters table; note assumptions in output |
+| **Contradictory instructions** ("healthy patient with A1C of 12%") | Prioritize clinical coherence; ask user to clarify intent |
+| **Unsupported output format** ("as X12 837") | Redirect to MemberSim which owns claims formats; explain the boundary |
 
 ## Output Formats
 
@@ -141,80 +174,9 @@ See [validation-rules.md](../../references/validation-rules.md) for complete rul
 | HL7v2 ADT | "as HL7", "ADT message" | Legacy EMR |
 | CSV | "as CSV" | Analytics |
 
-## Data Integration (PopulationSim v2.0)
+## Data Integration (PopulationSim)
 
-PatientSim integrates with PopulationSim's embedded data package to generate patients grounded in real demographic and health data.
-
-### Enabling Data-Driven Generation
-
-Add a `geography` parameter to any request to enable data-driven generation:
-
-| Parameter | Type | Example | Description |
-|-----------|------|---------|-------------|
-| geography | string | "48201" | 5-digit county FIPS code |
-| geography | string | "48201002300" | 11-digit census tract FIPS code |
-
-**Example request:**
-```
-Generate a diabetic patient in Harris County, TX (geography: 48201)
-```
-
-### What Data-Driven Generation Provides
-
-When geography is specified, PatientSim uses real population data:
-
-1. **Demographics**: Age, sex, race/ethnicity distributions match real population
-2. **Condition Prevalence**: Diabetes, obesity, hypertension rates from CDC PLACES
-3. **SDOH Context**: SVI vulnerability scores affect adherence and outcomes
-4. **Comorbidity Rates**: Realistic co-occurrence based on area health profile
-
-### Embedded Data Sources
-
-| Source | File | Coverage | Use |
-|--------|------|----------|-----|
-| CDC PLACES 2024 | `populationsim/data/county/places_county_2024.csv` | 3,144 counties | Health indicators (40 measures) |
-| CDC PLACES 2024 | `populationsim/data/tract/places_tract_2024.csv` | 84,000 tracts | Neighborhood-level health |
-| CDC SVI 2022 | `populationsim/data/county/svi_county_2022.csv` | 3,144 counties | Social vulnerability |
-| CDC SVI 2022 | `populationsim/data/tract/svi_tract_2022.csv` | 84,000 tracts | Tract vulnerability |
-| ADI 2023 | `populationsim/data/block_group/adi_blockgroup_2023.csv` | 242,000 block groups | Area deprivation |
-
-### Provenance Tracking
-
-Data-driven generation includes provenance in output metadata:
-
-```json
-{
-  "patient": { ... },
-  "metadata": {
-    "generation_mode": "data_driven",
-    "geography": {
-      "fips": "48201",
-      "name": "Harris County, TX",
-      "level": "county"
-    },
-    "data_provenance": [
-      {
-        "source": "CDC_PLACES_2024",
-        "data_year": 2022,
-        "file": "populationsim/data/county/places_county_2024.csv",
-        "fields_used": ["DIABETES_CrudePrev", "OBESITY_CrudePrev", "BPHIGH_CrudePrev"]
-      },
-      {
-        "source": "CDC_SVI_2022",
-        "data_year": 2022,
-        "file": "populationsim/data/county/svi_county_2022.csv",
-        "fields_used": ["RPL_THEMES", "EP_UNINSUR"]
-      }
-    ]
-  }
-}
-```
-
-### Foundation Skill
-
-For detailed data integration patterns, see [data-integration.md](data-integration.md).
-
-For complete mapping specification, see [PopulationSim → PatientSim Integration](../populationsim/integration/patientsim-integration.md).
+Add `geography` (5-digit county FIPS or 11-digit tract FIPS) to ground generation in real CDC PLACES, SVI, and ADI data. See [data-integration.md](data-integration.md) for full patterns, data sources, and provenance tracking.
 
 ## Examples
 
@@ -269,7 +231,19 @@ For complete mapping specification, see [PopulationSim → PatientSim Integratio
 }
 ```
 
-### Example 2: Complex Multi-Condition Patient
+### Example 2: Acute Inpatient Encounter
+
+**Request:** "Create an inpatient admission for pneumonia"
+
+Generates a hospital encounter with:
+- Encounter class `I` (inpatient), admission and discharge dates
+- Diagnosis: J18.9 (Pneumonia, unspecified organism) plus respiratory symptoms
+- Procedures: chest X-ray (CPT 71046), blood cultures, CBC
+- Labs: WBC, procalcitonin, BMP, blood gas
+- Medications: antibiotics (ceftriaxone + azithromycin)
+- Imaging results documenting chest infiltrates
+
+### Example 3: Complex Multi-Condition Patient
 
 **Request:** "Generate a 68-year-old female with diabetes, hypertension, and CKD stage 3"
 
@@ -282,30 +256,9 @@ Claude combines patterns from multiple cohort skills to generate a coherent pati
 
 ## Related Skills
 
-### Chronic Disease
-- [diabetes-management.md](diabetes-management.md) - Diabetes cohorts
-- [heart-failure.md](heart-failure.md) - Heart failure cohorts
-- [chronic-kidney-disease.md](chronic-kidney-disease.md) - CKD cohorts
+All cohort sub-skills are listed in the [Cohort Skills](#cohort-skills) table above. Additional references:
 
-### Behavioral Health
-
-- [behavioral-health.md](behavioral-health.md) - Depression, anxiety, bipolar, PTSD, substance use
-
-### Acute Care
-- [adt-workflow.md](adt-workflow.md) - ADT workflow cohorts
-- [sepsis-acute-care.md](sepsis-acute-care.md) - Acute care cohorts
-- [orders-results.md](orders-results.md) - Orders and results
-
-### Pediatrics
-
-- [pediatrics/childhood-asthma.md](pediatrics/childhood-asthma.md) - Pediatric asthma cohorts
-- [pediatrics/acute-otitis-media.md](pediatrics/acute-otitis-media.md) - Ear infection cohorts
-
-### Oncology
 - [oncology-domain.md](../../references/oncology-domain.md) - Foundational oncology knowledge
-- [oncology/breast-cancer.md](oncology/breast-cancer.md) - Breast cancer cohorts
-- [oncology/lung-cancer.md](oncology/lung-cancer.md) - Lung cancer cohorts (NSCLC/SCLC)
-- [oncology/colorectal-cancer.md](oncology/colorectal-cancer.md) - Colorectal cancer cohorts
 
 ### Cross-Product: MemberSim (Claims)
 
@@ -333,112 +286,9 @@ PatientSim medication orders generate prescription fills in RxMemberSim:
 
 > **Integration Pattern:** Generate medication orders in PatientSim, then use RxMemberSim to model pharmacy fills with matching NDCs and appropriate fill timing.
 
-### Cross-Product: PopulationSim (Demographics & SDOH) - v2.0 Data Integration
+### Cross-Product: PopulationSim (Demographics & SDOH)
 
-PopulationSim v2.0 provides **embedded real-world data** for statistically accurate patient generation. When a geography is specified, PatientSim uses actual CDC PLACES, SVI, and ADI data to ground demographics and health patterns.
-
-#### Data-Driven Generation Pattern
-
-**Step 1: Look up real population data**
-```
-# For Harris County, TX (FIPS: 48201)
-Read from: skills/populationsim/data/county/places_county_2024.csv
-→ DIABETES_CrudePrev: 12.1%
-→ OBESITY_CrudePrev: 32.8%
-→ BPHIGH_CrudePrev: 32.4%
-→ TotalPopulation: 4,731,145
-
-Read from: skills/populationsim/data/county/svi_county_2022.csv
-→ RPL_THEMES (overall SVI): 0.68
-→ EP_POV150: 22.3% (below 150% poverty)
-→ EP_MINRTY: 72.1% (minority percentage)
-```
-
-**Step 2: Apply rates to patient generation**
-```json
-{
-  "cohort_parameters": {
-    "geography": { "county_fips": "48201", "name": "Harris County, TX" },
-    "condition_weights": {
-      "diabetes": 0.121,
-      "obesity": 0.328,
-      "hypertension": 0.324
-    },
-    "demographic_distribution": {
-      "minority_percentage": 0.721,
-      "poverty_percentage": 0.223
-    },
-    "sdoh_context": {
-      "svi_overall": 0.68,
-      "vulnerability_category": "high"
-    },
-    "data_provenance": {
-      "source": "CDC_PLACES_2024",
-      "data_year": 2022
-    }
-  }
-}
-```
-
-**Step 3: Generate patients matching real rates**
-- Assign diabetes to ~12.1% of patients (not generic 10%)
-- Weight demographics toward 72% minority representation
-- Apply SDOH factors consistent with SVI 0.68
-
-#### PopulationSim Data Files
-
-| Dataset | File | Key Measures | Use Case |
-|---------|------|--------------|----------|
-| CDC PLACES County | `populationsim/data/county/places_county_2024.csv` | 40 health measures | Condition prevalence by county |
-| CDC PLACES Tract | `populationsim/data/tract/places_tract_2024.csv` | 40 health measures | Neighborhood-level health |
-| SVI County | `populationsim/data/county/svi_county_2022.csv` | 16 vulnerability vars | County SDOH context |
-| SVI Tract | `populationsim/data/tract/svi_tract_2022.csv` | 16 vulnerability vars | Tract SDOH context |
-| ADI Block Group | `populationsim/data/block_group/adi_blockgroup_2023.csv` | National/state ADI | Deprivation scoring |
-
-#### Integration Skills
-
-| PopulationSim Skill | PatientSim Application | Data Source |
-|---------------------|------------------------|-------------|
-| [data-lookup.md](../populationsim/data-access/data-lookup.md) | Exact prevalence rates | CDC PLACES 2024 |
-| [county-profile.md](../populationsim/geographic/county-profile.md) | County demographics, health patterns | PLACES + SVI |
-| [census-tract-analysis.md](../populationsim/geographic/census-tract-analysis.md) | Neighborhood health context | Tract PLACES + SVI |
-| [svi-analysis.md](../populationsim/sdoh/svi-analysis.md) | Social vulnerability factors | CDC SVI 2022 |
-| [adi-analysis.md](../populationsim/sdoh/adi-analysis.md) | Area deprivation | ADI 2023 |
-| [cohort-specification.md](../populationsim/cohorts/cohort-specification.md) | Data-driven cohort definition | All sources |
-
-#### Example: Data-Grounded Patient Generation
-
-**Request:** "Generate 50 diabetic patients for Harris County, TX"
-
-**Process:**
-1. **Data Lookup**: Read Harris County from `places_county_2024.csv`
-   - Diabetes: 12.1% (used to weight comorbidities)
-   - Obesity: 32.8%, Hypertension: 32.4%, CKD: 3.2%
-   
-2. **SVI Context**: Read from `svi_county_2022.csv`
-   - Overall SVI: 0.68 (high vulnerability)
-   - Poverty: 22.3%, Uninsured: 18.1%
-   
-3. **Patient Generation**: Apply real rates
-   - ~85% of diabetics have obesity (county rate 32.8% baseline)
-   - ~75% have hypertension (county rate 32.4% baseline)
-   - SDOH factors reflect high vulnerability (transportation barriers, food insecurity)
-
-4. **Output with Provenance**:
-```json
-{
-  "patient": { "mrn": "MRN00000001", "...": "..." },
-  "generation_context": {
-    "geography": "Harris County, TX (48201)",
-    "data_sources": ["CDC_PLACES_2024", "CDC_SVI_2022"],
-    "condition_rates_applied": {
-      "diabetes": { "rate": 0.121, "source": "places_county_2024.csv" }
-    }
-  }
-}
-```
-
-> **Key Principle:** When geography is specified, always ground generation in real PopulationSim data. Never use generic national averages when local data is available.
+When geography is specified, PatientSim grounds generation in real CDC PLACES, SVI, and ADI data via PopulationSim. See [data-integration.md](data-integration.md) for the full data-driven generation pattern, data files, and provenance tracking.
 
 ### Cross-Product: NetworkSim (Provider Networks)
 
@@ -477,43 +327,6 @@ For patients enrolled in clinical trials:
 
 PatientSim integrates with the [Generative Framework](../generation/SKILL.md) for specification-driven generation at scale.
 
-### Profile-Driven Generation
-
-Use profile specifications to generate patient cohorts:
-
-```
-"Use the Medicare diabetic profile to generate 100 patients"
-```
-
-The Profile Executor will:
-1. Sample demographics from profile distributions
-2. Generate clinical attributes (diagnoses, medications, labs)
-3. Link to NetworkSim providers
-4. Apply condition-specific patterns
-
-### Journey-Driven Generation
-
-Attach journey specifications to create temporal event sequences:
-
-```
-"Add the diabetic first-year journey to each patient"
-```
-
-The Journey Executor will:
-1. Generate encounters over time (PCP visits, specialist referrals)
-2. Create appropriate labs at each visit
-3. Generate medication prescriptions and changes
-4. Apply branching logic for complications
-
-### Cross-Domain Sync
-
-When generating across products, PatientSim entities are automatically linked:
-
-| PatientSim Entity | Links To |
-|-------------------|----------|
-| Patient | MemberSim Member (via SSN) |
-| Encounter | MemberSim Claim |
-| Prescription | RxMemberSim Fill |
-| Trial Subject | TrialSim Subject |
-
-See: [../generation/executors/cross-domain-sync.md](../generation/executors/cross-domain-sync.md)
+- **Profile-Driven:** `"Use the Medicare diabetic profile to generate 100 patients"` — samples demographics, generates clinical attributes, links to NetworkSim providers.
+- **Journey-Driven:** `"Add the diabetic first-year journey to each patient"` — generates encounters over time, labs, medication changes, and complication branching.
+- **Cross-Domain Sync:** Patient → MemberSim Member (via SSN), Encounter → Claim, Prescription → RxMemberSim Fill, Trial Subject → TrialSim Subject. See [cross-domain-sync.md](../generation/executors/cross-domain-sync.md).
