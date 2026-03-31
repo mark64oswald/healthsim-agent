@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "exported_at": "2026-01-13T08:55:38.263234",
+    "format": "json",
+    "version": "1.0",
+    "source": "healthsim-agent"
+  },
+  "data": {
+    "hl7v2_message": "MSH|^~\\&|PATIENTSIM|HOSPITAL|EMR|HOSPITAL|20260113085508||ADT^A01|1B95345733A14D9CB|P|2.5\rEVN|A01|20240113143000||\rPID|1||MRN-BOB001||Roberts^Bob||19750815|M||||||||||||||||||||||\rPV1|1|O||3|||||||||||||||ER-20240113-001|||||||||||||||||||||||||20240113143000|20240113184500\rDG1|1||R06.02^Shortness of breath^I10|||F\r",
+    "message_type": "ADT_A01",
+    "patient_name": "Bob Roberts",
+    "mrn": "MRN-BOB001",
+    "encounter_id": "ER-20240113-001",
+    "generated_timestamp": "2026-01-13T08:55:08",
+    "description": "HL7v2 ADT_A01 message for Bob Roberts ER admission case"
+  }
+}

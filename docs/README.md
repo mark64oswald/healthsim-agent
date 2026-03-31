@@ -10,7 +10,7 @@ Welcome to the HealthSim Agent documentation. This guide will help you find what
 |--------------|----------|
 | Get started quickly | [Getting Started](getting-started/) |
 | Learn about a specific domain | [User Guides](guides/) |
-| Look up a command or option | [Reference](reference/) |
+| Look up technical details | [Reference](reference/) |
 | See working examples | [Examples](../examples/) |
 | Contribute to HealthSim | [Contributing](contributing/) |
 
@@ -31,8 +31,8 @@ New to HealthSim? Start here.
 
 Deep dives into each domain and capability.
 
-- [PatientSim Guide](guides/patientsim-guide.md) - Clinical/EMR data
-- [MemberSim Guide](guides/membersim-guide.md) - Claims/payer data
+- [PatientSim Guide](guides/patientsim-guide.md) - Clinical/EMR data ✅
+- [MemberSim Guide](guides/membersim-guide.md) - Claims/payer data ✅
 - [RxMemberSim Guide](guides/rxmembersim-guide.md) - Pharmacy/PBM data
 - [TrialSim Guide](guides/trialsim-guide.md) - Clinical trials
 - [PopulationSim Guide](guides/populationsim-guide.md) - Demographics & SDOH
@@ -44,28 +44,18 @@ Deep dives into each domain and capability.
 
 Technical documentation and specifications.
 
-- [Architecture](reference/architecture.md) - System design
-- [CLI Reference](reference/cli-reference.md) - Complete CLI documentation
-- [Tools Reference](reference/tools-reference.md) - Agent tools
-- [Database Schema](reference/database-schema.md) - DuckDB tables
-- [Output Formats](reference/output-formats.md) - FHIR, X12, NCPDP, etc.
-- [Code Systems](reference/code-systems.md) - ICD-10, CPT, NDC, etc.
-
-### 🧩 [Skills](skills/)
-
-Skills system documentation for extending HealthSim.
-
-- [Skills Overview](skills/README.md) - How skills work
-- [Creating Skills](skills/creating-skills.md) - Add new capabilities
-- [Skill Format](skills/skill-format.md) - Skill file specification
+- [Architecture](reference/HEALTHSIM-ARCHITECTURE-GUIDE.md) - System design
+- [Generation Framework](reference/GENERATIVE-FRAMEWORK-USER-GUIDE.md) - How data generation works
+- [Database Schema](reference/healthsim-duckdb-schema.md) - DuckDB tables
+- [Data Architecture](reference/data-architecture.md) - Data model overview
+- [Skills System](reference/skills/) - Skills documentation
+- [API Reference](reference/api/) - Internal APIs
 
 ### 🤝 [Contributing](contributing/)
 
 For developers contributing to HealthSim.
 
-- [Development Setup](contributing/development-setup.md) - Dev environment
-- [Testing Guide](contributing/testing-guide.md) - Running tests
-- [Code Style](contributing/code-style.md) - Style guidelines
+- [Contributing Guide](contributing/README.md) - How to contribute
 
 ---
 
@@ -77,7 +67,7 @@ Start with [Getting Started](getting-started/), then explore [User Guides](guide
 
 ### For Developers
 
-Check [Reference](reference/) for technical details, [Skills](skills/) to extend functionality, and [Contributing](contributing/) to contribute code.
+Check [Reference](reference/) for technical details, [Skills](reference/skills/) to extend functionality, and [Contributing](contributing/) to contribute code.
 
 ### For Evaluators
 
@@ -95,13 +85,22 @@ See [Examples](../examples/) for working demonstrations and the main [README](..
 
 ## Documentation Status
 
-| Section | Status |
-|---------|--------|
-| Getting Started | ✅ Complete |
-| User Guides | 🚧 In Progress |
-| Reference | 🚧 In Progress |
-| Skills | 📝 Planned |
-| Contributing | 📝 Planned |
-| Examples | 📝 Planned |
+| Section | Status | Notes |
+|---------|--------|-------|
+| Getting Started | ✅ Complete | 5 documents |
+| User Guides | 🟡 25% | 2 of 8 guides done |
+| Reference | 🟡 Partial | Needs reorganization |
+| Contributing | 🟡 Started | Needs expansion |
+| Examples | 🟡 10% | 1 of 10 examples done |
 
-*Last updated: January 2026*
+See [PHASE-7-PROGRESS.md](PHASE-7-PROGRESS.md) for detailed progress tracking.
+
+---
+
+## Archive
+
+Internal planning documents, design artifacts, and workspace-era documentation have been moved to the [archive](archive/) directory. These are not part of the product documentation.
+
+---
+
+*Last updated: January 12, 2026*
